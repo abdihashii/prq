@@ -7,5 +7,5 @@ const EnvSchema = z.object({
 })
 
 export const env = EnvSchema.parse({
-  GITHUB_PAT: process.env['GITHUB_PAT'],
+  GITHUB_PAT: process.env['GITHUB_PAT'] ?? '',
 })
