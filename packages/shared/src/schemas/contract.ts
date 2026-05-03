@@ -19,3 +19,13 @@ export const BucketedResponseSchema = z.object({
   syncedAt: z.iso.datetime(),
   rateLimit: RateLimitSchema,
 })
+
+export const ApiErrorCodeSchema = z.enum(['BAD_CREDENTIALS', 'RATE_LIMITED', 'UPSTREAM_ERROR'])
+
+export const ApiErrorSchema = z.object({
+  error: z.object({
+    code: ApiErrorCodeSchema,
+    message: z.string(),
+    resetAt: z.iso.datetime().optional(),
+  }),
+})
