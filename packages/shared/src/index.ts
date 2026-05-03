@@ -5,3 +5,5 @@ export { BucketedResponseSchema, RateLimitSchema } from './schemas/contract.js'
 export type { Bucket } from './types/bucket.js'
 export type { PullRequest } from './types/pullRequest.js'
 export type { BucketedResponse, RateLimit } from './types/contract.js'
+
+export { assignBucket } from './lib/bucket.js'
