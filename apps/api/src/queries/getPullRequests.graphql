@@ -1,0 +1,115 @@
+query GetPullRequests {
+  viewer {
+    login
+  }
+  rateLimit {
+    cost
+    remaining
+    resetAt
+  }
+  authored: search(type: ISSUE, first: 50, query: "is:pr is:open author:@me") {
+    nodes {
+      __typename
+      ... on PullRequest {
+        ...PrFields
+      }
+    }
+  }
+  reviewRequested: search(type: ISSUE, first: 50, query: "is:pr is:open review-requested:@me") {
+    nodes {
+      __typename
+      ... on PullRequest {
+        ...PrFields
+      }
+    }
+  }
+  reviewedBy: search(type: ISSUE, first: 50, query: "is:pr is:open reviewed-by:@me") {
+    nodes {
+      __typename
+      ... on PullRequest {
+        ...PrFields
+      }
+    }
+  }
+}
+
+fragment PrFields on PullRequest {
+  id
+  number
+  title
+  url
+  isDraft
+  baseRefName
+  updatedAt
+  reviewDecision
+  mergeable
+  repository {
+    name
+    owner {
+      login
+    }
+  }
+  author {
+    login
+  }
+  statusCheckRollup {
+    state
+  }
+  commits(last: 1) {
+    nodes {
+      commit {
+        committedDate
+      }
+    }
+  }
+  reviews(first: 20) {
+    nodes {
+      state
+      submittedAt
+      author {
+        login
+      }
+    }
+  }
+  reviewRequests(first: 10) {
+    nodes {
+      requestedReviewer {
+        __typename
+        ... on User {
+          login
+        }
+        ... on Bot {
+          login
+        }
+        ... on Mannequin {
+          login
+        }
+        ... on Team {
+          slug
+        }
+      }
+    }
+  }
+  comments(first: 20) {
+    totalCount
+    nodes {
+      createdAt
+      author {
+        login
+      }
+    }
+  }
+  reviewThreads(first: 20) {
+    nodes {
+      isResolved
+      comments(first: 20) {
+        nodes {
+          createdAt
+          author {
+            login
+          }
+        }
+      }
+    }
+  }
+}
