@@ -1,0 +1,20 @@
+{
+  "name": "@prq/api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.12",
+    "@hono/node-server": "^2.0",
+    "@prq/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "latest",
+    "typescript": "^6.0.2",
+    "@types/node": "^22"
+  }
+}
