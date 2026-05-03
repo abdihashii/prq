@@ -4,7 +4,7 @@ import { prs } from './routes/prs.js'
 
 const app = new Hono()
 app.get('/health', c => c.json({ ok: true }))
-app.route('/', prs)
+app.route('/api', prs)
 
 serve({ fetch: app.fetch, port: 3001 }, ({ port }) => {
   console.log(`prq api listening on :${port}`)
