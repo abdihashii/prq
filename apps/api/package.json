@@ -4,17 +4,26 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "codegen": "graphql-codegen --config codegen.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "hono": "^4.12",
     "@hono/node-server": "^2.0",
-    "@prq/shared": "workspace:*"
+    "@octokit/graphql": "^9.0.1",
+    "@prq/shared": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "tsx": "latest",
     "typescript": "catalog:",
-    "@types/node": "^22"
+    "vitest": "catalog:",
+    "@types/node": "^22",
+    "@graphql-codegen/cli": "^6.0.0",
+    "@graphql-codegen/typescript": "^5.0.0",
+    "@graphql-codegen/typescript-operations": "^5.0.0",
+    "@octokit/graphql-schema": "^15.26.1"
   }
 }
