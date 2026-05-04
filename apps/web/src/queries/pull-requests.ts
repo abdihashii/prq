@@ -1,4 +1,5 @@
-import { ApiErrorSchema, BucketedResponseSchema, type BucketedResponse } from '@prq/shared'
+import type { BucketedResponse } from '@prq/shared'
+import { ApiErrorSchema, BucketedResponseSchema } from '@prq/shared'
 import { ApiError } from '#/lib/api-error.js'
 
 export async function fetchPullRequests(): Promise<BucketedResponse> {
