@@ -59,6 +59,7 @@ export const RawPullRequestSchema = z.object({
     })
     .nullable(),
   commits: z.object({
+    totalCount: z.number().int().nonnegative(),
     nodes: z.array(RawCommit.nullable()).nullable(),
   }),
   reviews: z

@@ -14,7 +14,7 @@ const baseRawPr: RawPullRequest = {
   repository: { name: 'repo', owner: { login: 'owner' } },
   author: { login: 'me' },
   statusCheckRollup: null,
-  commits: { nodes: [{ commit: { committedDate: '2026-01-01T00:00:00Z' } }] },
+  commits: { totalCount: 1, nodes: [{ commit: { committedDate: '2026-01-01T00:00:00Z' } }] },
   reviews: { nodes: [] },
   reviewRequests: { nodes: [] },
   comments: { totalCount: 0, nodes: [] },

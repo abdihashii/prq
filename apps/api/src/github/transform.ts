@@ -1,4 +1,4 @@
-import { assignBucket, type PullRequest } from '@prq/shared'
+import { assignBucket, type PullRequest, type RequestedReviewer } from '@prq/shared'
 import type { RawPullRequest, RawResponse } from './schema.js'
 
 export interface TransformResult {
@@ -68,6 +68,12 @@ function projectAndBucket(raw: RawPullRequest, viewerLogin: string): PullRequest
     const rr = n.requestedReviewer
     return rr?.__typename === 'User' && rr.login === viewerLogin
   })
+  const requestedReviewers = reviewRequestNodes.flatMap<RequestedReviewer>((n) => {
+    const rr = n.requestedReviewer
+    if (rr === null) return []
+    if (rr.__typename === 'Team') return [{ kind: 'Team', handle: rr.slug }]
+    return [{ kind: rr.__typename, handle: rr.login }]
+  })
 
   const issueComments = (raw.comments.nodes ?? []).filter(
     (c): c is NonNullable<typeof c> => c !== null,
@@ -90,7 +96,16 @@ function projectAndBucket(raw: RawPullRequest, viewerLogin: string): PullRequest
   const reviewThreads = (raw.reviewThreads.nodes ?? []).filter(
     (t): t is NonNullable<typeof t> => t !== null,
   )
-  const unresolvedThreadCount = reviewThreads.filter((t) => !t.isResolved).length
+  const unresolvedThreads = reviewThreads.filter((t) => !t.isResolved)
+  const unresolvedThreadCount = unresolvedThreads.length
+  const unresolvedThreadAuthors = Array.from(
+    new Set(
+      unresolvedThreads
+        .flatMap((t) => (t.comments.nodes ?? []).filter((c): c is NonNullable<typeof c> => c !== null))
+        .map((c) => c.author?.login)
+        .filter((login): login is string => login !== undefined && login !== viewerLogin),
+    ),
+  )
 
   const projected = {
     id: raw.id,
@@ -106,13 +121,16 @@ function projectAndBucket(raw: RawPullRequest, viewerLogin: string): PullRequest
     mergeable: raw.mergeable,
     statusCheckRollup: raw.statusCheckRollup,
     latestCommit,
+    commitsTotalCount: raw.commits.totalCount,
     commentsTotalCount: raw.comments.totalCount,
+    requestedReviewers,
     viewerHasReviewed,
     viewerLatestReviewSubmittedAt,
     viewerIsRequestedReviewer,
     needsRereview,
     newCommentsSincePush,
     unresolvedThreadCount,
+    unresolvedThreadAuthors,
   }
 
   const bucket = assignBucket(projected, viewerLogin)

@@ -30622,7 +30622,7 @@ export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 
           | { __typename: 'Mannequin', login: string }
           | { __typename: 'Organization', login: string }
           | { __typename: 'User', login: string }
-         | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
+         | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', totalCount: number, nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
               | { __typename: 'Bot', login: string }
               | { __typename: 'EnterpriseUserAccount', login: string }
               | { __typename: 'Mannequin', login: string }
@@ -30663,7 +30663,7 @@ export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 
           | { __typename: 'Mannequin', login: string }
           | { __typename: 'Organization', login: string }
           | { __typename: 'User', login: string }
-         | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
+         | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', totalCount: number, nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
               | { __typename: 'Bot', login: string }
               | { __typename: 'EnterpriseUserAccount', login: string }
               | { __typename: 'Mannequin', login: string }
@@ -30704,7 +30704,7 @@ export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 
           | { __typename: 'Mannequin', login: string }
           | { __typename: 'Organization', login: string }
           | { __typename: 'User', login: string }
-         | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
+         | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', totalCount: number, nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
               | { __typename: 'Bot', login: string }
               | { __typename: 'EnterpriseUserAccount', login: string }
               | { __typename: 'Mannequin', login: string }
@@ -30741,7 +30741,7 @@ export type PrFieldsFragment = { __typename: 'PullRequest', id: string, number: 
     | { __typename: 'Mannequin', login: string }
     | { __typename: 'Organization', login: string }
     | { __typename: 'User', login: string }
-   | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
+   | null, statusCheckRollup?: { __typename: 'StatusCheckRollup', state: StatusState } | null, commits: { __typename: 'PullRequestCommitConnection', totalCount: number, nodes?: Array<{ __typename: 'PullRequestCommit', commit: { __typename: 'Commit', committedDate: string } } | null> | null }, reviews?: { __typename: 'PullRequestReviewConnection', nodes?: Array<{ __typename: 'PullRequestReview', state: PullRequestReviewState, submittedAt?: string | null, author?:
         | { __typename: 'Bot', login: string }
         | { __typename: 'EnterpriseUserAccount', login: string }
         | { __typename: 'Mannequin', login: string }

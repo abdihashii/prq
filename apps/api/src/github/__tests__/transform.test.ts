@@ -38,7 +38,7 @@ describe('transform', () => {
           makeRawPr({
             id: '3',
             author: { login: 'someone-else' },
-            commits: { nodes: [{ commit: { committedDate: '2026-02-01T00:00:00Z' } }] },
+            commits: { totalCount: 1, nodes: [{ commit: { committedDate: '2026-02-01T00:00:00Z' } }] },
             reviews: {
               nodes: [
                 { state: 'APPROVED', submittedAt: '2026-01-15T00:00:00Z', author: { login: 'me' } },
@@ -62,7 +62,7 @@ describe('transform', () => {
           makeRawPr({
             id: '4',
             author: { login: 'me' },
-            commits: { nodes: [{ commit: { committedDate: since } }] },
+            commits: { totalCount: 1, nodes: [{ commit: { committedDate: since } }] },
             comments: {
               totalCount: 2,
               nodes: [
@@ -150,7 +150,7 @@ describe('transform', () => {
           makeRawPr({
             id: '8',
             author: { login: 'someone-else' },
-            commits: { nodes: [{ commit: { committedDate: '2026-02-01T00:00:00Z' } }] },
+            commits: { totalCount: 1, nodes: [{ commit: { committedDate: '2026-02-01T00:00:00Z' } }] },
             reviews: {
               nodes: [
                 { state: 'COMMENTED', submittedAt: '2026-01-15T00:00:00Z', author: { login: 'me' } },
@@ -218,7 +218,7 @@ describe('transform', () => {
           makeRawPr({
             id: '12',
             author: { login: 'someone-else' },
-            commits: { nodes: [{ commit: { committedDate: '2026-01-01T00:00:00Z' } }] },
+            commits: { totalCount: 1, nodes: [{ commit: { committedDate: '2026-01-01T00:00:00Z' } }] },
             reviews: {
               nodes: [
                 { state: 'APPROVED', submittedAt: '2026-01-15T00:00:00Z', author: { login: 'me' } },
@@ -251,5 +251,94 @@ describe('transform', () => {
       }),
     )
     expect(result.pullRequests[0]?.unresolvedThreadCount).toBe(2)
+  })
+
+  it('surfaces commitsTotalCount from raw', () => {
+    const result = transform(
+      makeRawResponse({
+        authored: [
+          makeRawPr({
+            id: '14',
+            author: { login: 'me' },
+            commits: { totalCount: 7, nodes: [{ commit: { committedDate: '2026-01-01T00:00:00Z' } }] },
+          }),
+        ],
+      }),
+    )
+    expect(result.pullRequests[0]?.commitsTotalCount).toBe(7)
+  })
+
+  it('projects requestedReviewers across all reviewer kinds', () => {
+    const result = transform(
+      makeRawResponse({
+        reviewRequested: [
+          makeRawPr({
+            id: '15',
+            author: { login: 'someone-else' },
+            reviewRequests: {
+              nodes: [
+                { requestedReviewer: { __typename: 'User', login: 'me' } },
+                { requestedReviewer: { __typename: 'User', login: 'ada' } },
+                { requestedReviewer: { __typename: 'Bot', login: 'renovate' } },
+                { requestedReviewer: { __typename: 'Mannequin', login: 'mq-1' } },
+                { requestedReviewer: { __typename: 'Team', slug: 'platform' } },
+                { requestedReviewer: null },
+              ],
+            },
+          }),
+        ],
+      }),
+    )
+    expect(result.pullRequests[0]?.requestedReviewers).toEqual([
+      { kind: 'User', handle: 'me' },
+      { kind: 'User', handle: 'ada' },
+      { kind: 'Bot', handle: 'renovate' },
+      { kind: 'Mannequin', handle: 'mq-1' },
+      { kind: 'Team', handle: 'platform' },
+    ])
+  })
+
+  it('computes unresolvedThreadAuthors: dedupes and excludes viewer', () => {
+    const result = transform(
+      makeRawResponse({
+        authored: [
+          makeRawPr({
+            id: '16',
+            author: { login: 'me' },
+            reviewThreads: {
+              nodes: [
+                {
+                  isResolved: false,
+                  comments: {
+                    nodes: [
+                      { createdAt: '2026-01-02T00:00:00Z', author: { login: 'reviewer1' } },
+                      { createdAt: '2026-01-02T00:00:00Z', author: { login: 'me' } },
+                      { createdAt: '2026-01-02T00:00:00Z', author: { login: 'reviewer1' } },
+                    ],
+                  },
+                },
+                {
+                  isResolved: false,
+                  comments: {
+                    nodes: [
+                      { createdAt: '2026-01-02T00:00:00Z', author: { login: 'reviewer2' } },
+                    ],
+                  },
+                },
+                {
+                  isResolved: true,
+                  comments: {
+                    nodes: [
+                      { createdAt: '2026-01-02T00:00:00Z', author: { login: 'reviewer3' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    )
+    expect(result.pullRequests[0]?.unresolvedThreadAuthors).toEqual(['reviewer1', 'reviewer2'])
   })
 })

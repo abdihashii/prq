@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { BucketSchema } from './bucket.js'
 
+export const RequestedReviewerSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('User'), handle: z.string() }),
+  z.object({ kind: z.literal('Bot'), handle: z.string() }),
+  z.object({ kind: z.literal('Mannequin'), handle: z.string() }),
+  z.object({ kind: z.literal('Team'), handle: z.string() }),
+])
+
 export const PullRequestSchema = z.object({
   id: z.string(),
   number: z.number().int(),
@@ -22,7 +29,9 @@ export const PullRequestSchema = z.object({
     })
     .nullable(),
   latestCommit: z.object({ committedDate: z.iso.datetime() }).nullable(),
+  commitsTotalCount: z.number().int().nonnegative(),
   commentsTotalCount: z.number().int().nonnegative(),
+  requestedReviewers: z.array(RequestedReviewerSchema),
 
   bucket: BucketSchema,
   viewerHasReviewed: z.boolean(),
@@ -31,4 +40,5 @@ export const PullRequestSchema = z.object({
   needsRereview: z.boolean(),
   newCommentsSincePush: z.number().int().nonnegative(),
   unresolvedThreadCount: z.number().int().nonnegative(),
+  unresolvedThreadAuthors: z.array(z.string()),
 })
