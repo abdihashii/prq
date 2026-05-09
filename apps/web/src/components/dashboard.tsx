@@ -7,14 +7,19 @@ interface DashboardProps {
 }
 
 export function Dashboard({ data }: DashboardProps) {
+  const isAllEmpty = DISPLAY_ORDER.every((bucket) => data.buckets[bucket].length === 0)
+  if (isAllEmpty) {
+    return (
+      <p className="text-muted-foreground py-12 text-center">
+        Nothing in flight. Go ship something.
+      </p>
+    )
+  }
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-4 text-2xl font-semibold">prq</h1>
-      <div className="space-y-4">
-        {DISPLAY_ORDER.map((bucket) => (
-          <BucketSection key={bucket} bucket={bucket} prs={data.buckets[bucket]} />
-        ))}
-      </div>
-    </main>
+    <div className="space-y-4">
+      {DISPLAY_ORDER.map((bucket) => (
+        <BucketSection key={bucket} bucket={bucket} prs={data.buckets[bucket]} />
+      ))}
+    </div>
   )
 }
