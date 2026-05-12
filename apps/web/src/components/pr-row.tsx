@@ -36,6 +36,7 @@ export function PrRow({ pr, bucket }: PrRowProps) {
   const badgeLabel = getReviewBadgeLabel(pr)
   const hint = getContextualHint(pr)
   const bucketSuffix = getBucketMetaSuffix(pr, bucket)
+  const updated = formatRelativeTime(pr.updatedAt)
   const metaParts = [
     bucket === 'review'
       ? `by @${pr.author?.login ?? 'ghost'}`
@@ -69,7 +70,8 @@ export function PrRow({ pr, bucket }: PrRowProps) {
           </span>
         )}
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {formatRelativeTime(pr.updatedAt)}
+          <span className="inline-block w-[2ch] text-right">{updated.digits}</span>
+          {updated.unit}
         </span>
       </div>
       <div className="mt-1 font-medium">{pr.title}</div>

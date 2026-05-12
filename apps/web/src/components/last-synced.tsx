@@ -16,14 +16,16 @@ export function LastSynced({ dataUpdatedAt, isFetching }: LastSyncedProps) {
     return () => clearInterval(id)
   }, [isFetching])
 
-  const label =
-    dataUpdatedAt === 0
-      ? 'Last synced: —'
-      : `Last synced: ${formatRelativeTime(new Date(dataUpdatedAt).toISOString())}`
+  const parts =
+    dataUpdatedAt === 0 ? null : formatRelativeTime(new Date(dataUpdatedAt).toISOString())
 
   return (
     <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-      <span className="tabular-nums">{label}</span>
+      <span className="tabular-nums">
+        Last synced:{' '}
+        <span className="inline-block w-[2ch] text-right">{parts?.digits ?? '—'}</span>
+        {parts?.unit ?? ''}
+      </span>
       {isFetching && <Loader2 className="size-3 animate-spin" aria-label="Refreshing" />}
     </div>
   )
