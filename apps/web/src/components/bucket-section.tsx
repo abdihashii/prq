@@ -1,13 +1,13 @@
 import type { Bucket, PullRequest } from '@prq/shared'
 import { Info } from 'lucide-react'
 import { Fragment } from 'react'
-import { PrRow } from '#/components/pr-row.js'
-import { Card, CardContent, CardHeader } from '#/components/ui/card.js'
-import { Separator } from '#/components/ui/separator.js'
-import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip.js'
-import { BUCKET_DISPLAY } from '#/lib/bucket-display.js'
-import { formatNumber } from '#/lib/format/format.js'
-import { cn } from '#/lib/utils.js'
+import { PrRow } from '#/components/pr-row'
+import { Card, CardContent, CardHeader } from '#/components/ui/card'
+import { Separator } from '#/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip'
+import { BUCKET_DISPLAY } from '#/lib/bucket-display'
+import { formatNumber } from '#/lib/format/format'
+import { cn } from '#/lib/utils'
 
 interface BucketSectionProps {
   bucket: Bucket

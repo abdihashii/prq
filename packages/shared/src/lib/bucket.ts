@@ -1,5 +1,5 @@
-import type { Bucket } from '../types/bucket.js'
-import type { PullRequest } from '../types/pullRequest.js'
+import type { Bucket } from '../types/bucket'
+import type { PullRequest } from '../types/pullRequest'
 
 type BucketInput = Pick<
   PullRequest,

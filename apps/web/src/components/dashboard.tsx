@@ -1,6 +1,6 @@
 import type { BucketedResponse } from '@prq/shared'
 import { DISPLAY_ORDER } from '@prq/shared'
-import { BucketSection } from '#/components/bucket-section.js'
+import { BucketSection } from '#/components/bucket-section'
 
 interface DashboardProps {
   data: BucketedResponse

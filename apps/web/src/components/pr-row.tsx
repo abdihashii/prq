@@ -1,16 +1,16 @@
 import type { Bucket, PullRequest } from '@prq/shared'
 import type { LucideIcon } from 'lucide-react'
 import { Check, Clock, MessageSquare, X } from 'lucide-react'
-import { Badge } from '#/components/ui/badge.js'
-import { formatNumber, formatRelativeTime } from '#/lib/format/format.js'
-import type { CiStatusKind, ReviewBadgeLabel } from '#/lib/pr-display/pr-display.js'
+import { Badge } from '#/components/ui/badge'
+import { formatNumber, formatRelativeTime } from '#/lib/format/format'
+import type { CiStatusKind, ReviewBadgeLabel } from '#/lib/pr-display/pr-display'
 import {
   getBucketMetaSuffix,
   getCiStatusKind,
   getContextualHint,
   getReviewBadgeLabel,
-} from '#/lib/pr-display/pr-display.js'
-import { cn } from '#/lib/utils.js'
+} from '#/lib/pr-display/pr-display'
+import { cn } from '#/lib/utils'
 
 const CI_ICON: Record<CiStatusKind, { Icon: LucideIcon, className: string }> = {
   success: { Icon: Check, className: 'text-emerald-500' },

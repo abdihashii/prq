@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { BucketSchema } from './bucket.js'
+import { BucketSchema } from './bucket'
 
 export const RequestedReviewerSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('User'), handle: z.string() }),

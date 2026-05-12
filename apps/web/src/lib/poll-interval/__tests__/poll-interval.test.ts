@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError } from '#/lib/api-error.js'
-import { getRefetchInterval } from '../poll-interval.js'
+import { ApiError } from '#/lib/api-error'
+import { getRefetchInterval } from '../poll-interval'
 
 const now = new Date('2026-05-03T12:00:00.000Z')
 const DEFAULT = 30_000

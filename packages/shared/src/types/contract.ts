@@ -4,7 +4,7 @@ import type {
   ApiErrorSchema,
   BucketedResponseSchema,
   RateLimitSchema,
-} from '../schemas/contract.js'
+} from '../schemas/contract'
 
 export type BucketedResponse = z.infer<typeof BucketedResponseSchema>
 export type RateLimit = z.infer<typeof RateLimitSchema>

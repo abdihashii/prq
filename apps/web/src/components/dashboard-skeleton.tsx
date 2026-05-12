@@ -1,10 +1,10 @@
 import { DISPLAY_ORDER } from '@prq/shared'
 import { Fragment } from 'react'
-import { Card, CardContent, CardHeader } from '#/components/ui/card.js'
-import { Separator } from '#/components/ui/separator.js'
-import { Skeleton } from '#/components/ui/skeleton.js'
-import { BUCKET_DISPLAY } from '#/lib/bucket-display.js'
-import { cn } from '#/lib/utils.js'
+import { Card, CardContent, CardHeader } from '#/components/ui/card'
+import { Separator } from '#/components/ui/separator'
+import { Skeleton } from '#/components/ui/skeleton'
+import { BUCKET_DISPLAY } from '#/lib/bucket-display'
+import { cn } from '#/lib/utils'
 
 const SKELETON_ROWS_PER_BUCKET = 2
 

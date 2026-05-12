@@ -1,4 +1,4 @@
-import { ApiError } from '#/lib/api-error.js'
+import { ApiError } from '#/lib/api-error'
 
 export function getRefetchInterval(
   error: unknown,

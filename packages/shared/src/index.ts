@@ -1,14 +1,14 @@
-export { BucketSchema, DISPLAY_ORDER, EVALUATION_ORDER } from './schemas/bucket.js'
-export { PullRequestSchema, RequestedReviewerSchema } from './schemas/pullRequest.js'
+export { BucketSchema, DISPLAY_ORDER, EVALUATION_ORDER } from './schemas/bucket'
+export { PullRequestSchema, RequestedReviewerSchema } from './schemas/pullRequest'
 export {
   ApiErrorCodeSchema,
   ApiErrorSchema,
   BucketedResponseSchema,
   RateLimitSchema,
-} from './schemas/contract.js'
+} from './schemas/contract'
 
-export type { Bucket } from './types/bucket.js'
-export type { PullRequest, RequestedReviewer } from './types/pullRequest.js'
-export type { ApiErrorCode, ApiErrorPayload, BucketedResponse, RateLimit } from './types/contract.js'
+export type { Bucket } from './types/bucket'
+export type { PullRequest, RequestedReviewer } from './types/pullRequest'
+export type { ApiErrorCode, ApiErrorPayload, BucketedResponse, RateLimit } from './types/contract'
 
-export { assignBucket } from './lib/bucket.js'
+export { assignBucket } from './lib/bucket'

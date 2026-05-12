@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { PullRequest } from '../../types/pullRequest.js'
-import { assignBucket } from '../bucket.js'
+import type { PullRequest } from '../../types/pullRequest'
+import { assignBucket } from '../bucket'
 
 const VIEWER = 'haji'
 

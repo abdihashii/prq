@@ -1,5 +1,5 @@
 import { differenceInDays, differenceInHours, differenceInMinutes, differenceInSeconds } from 'date-fns'
-import { formatNumber } from './format-number.js'
+import { formatNumber } from './format-number'
 
 export interface RelativeTime {
   digits: string

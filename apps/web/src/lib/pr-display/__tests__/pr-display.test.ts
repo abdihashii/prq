@@ -7,7 +7,7 @@ import {
   getCiStatusKind,
   getContextualHint,
   getReviewBadgeLabel,
-} from '../pr-display.js'
+} from '../pr-display'
 
 type DisplayInput = Pick<
   PullRequest,

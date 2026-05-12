@@ -1,8 +1,8 @@
 import { format } from 'date-fns'
 import { AlertCircle, AlertTriangle, RefreshCw, WifiOff } from 'lucide-react'
-import { Button } from '#/components/ui/button.js'
-import { ApiError } from '#/lib/api-error.js'
-import { cn } from '#/lib/utils.js'
+import { Button } from '#/components/ui/button'
+import { ApiError } from '#/lib/api-error'
+import { cn } from '#/lib/utils'
 
 interface ErrorBannerProps {
   error: unknown

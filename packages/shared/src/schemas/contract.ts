@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PullRequestSchema } from './pullRequest.js'
+import { PullRequestSchema } from './pullRequest'
 
 export const RateLimitSchema = z.object({
   cost: z.number().int().nonnegative(),

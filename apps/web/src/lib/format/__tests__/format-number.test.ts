@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatNumber } from '../format-number.js'
+import { formatNumber } from '../format-number'
 
 describe('formatNumber', () => {
   it('renders 0 through 999 without separators', () => {
