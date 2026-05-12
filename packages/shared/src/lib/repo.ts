@@ -1,5 +1,5 @@
 import type { PullRequest } from '../types/pullRequest'
-import type { SeenRepo } from '../types/seenRepo'
+import type { TrackableRepo } from '../types/trackableRepo'
 
 const REPO_SLUG_RE = /^[^/\s]+\/[^/\s]+$/
 
@@ -55,7 +55,7 @@ export function parseRepoList(input: string | undefined): string[] {
  *   `prCount` matching occurrences in the input.
  *
  * @example
- * summarizeSeenRepos([
+ * summarizeTrackableRepos([
  *   { repository: { owner: 'vercel', name: 'next.js' }, ...},
  *   { repository: { owner: 'vercel', name: 'next.js' }, ...},
  *   { repository: { owner: 'facebook', name: 'react' }, ...},
@@ -66,11 +66,11 @@ export function parseRepoList(input: string | undefined): string[] {
  * // ]
  *
  * @example
- * summarizeSeenRepos([])
+ * summarizeTrackableRepos([])
  * // => []
  */
-export function summarizeSeenRepos(prs: PullRequest[]): SeenRepo[] {
-  const map = new Map<string, SeenRepo>()
+export function summarizeTrackableRepos(prs: PullRequest[]): TrackableRepo[] {
+  const map = new Map<string, TrackableRepo>()
   for (const pr of prs) {
     const key = `${pr.repository.owner}/${pr.repository.name}`
     const existing = map.get(key)

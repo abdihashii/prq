@@ -6,7 +6,7 @@ export {
   BucketedResponseSchema,
   RateLimitSchema,
 } from './schemas/contract'
-export { SeenRepoSchema } from './schemas/seenRepo'
+export { TrackableRepoSchema } from './schemas/trackableRepo'
 export {
   DEFAULT_SETTINGS,
   POLLING_OPTIONS,
@@ -18,8 +18,8 @@ export {
 export type { Bucket } from './types/bucket'
 export type { PullRequest, RequestedReviewer } from './types/pullRequest'
 export type { ApiErrorCode, ApiErrorPayload, BucketedResponse, RateLimit } from './types/contract'
-export type { SeenRepo } from './types/seenRepo'
+export type { TrackableRepo } from './types/trackableRepo'
 export type { PollingMs, Settings, TrackedRepos } from './types/settings'
 
 export { assignBucket } from './lib/bucket'
-export { parseRepoList, summarizeSeenRepos } from './lib/repo'
+export { parseRepoList, summarizeTrackableRepos } from './lib/repo'

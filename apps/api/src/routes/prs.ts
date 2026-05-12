@@ -5,7 +5,7 @@ import {
   BucketedResponseSchema,
   parseRepoList,
   type PullRequest,
-  summarizeSeenRepos,
+  summarizeTrackableRepos,
 } from '@prq/shared'
 import { fetchPullRequests } from '../github/client'
 import { RawResponseSchema } from '../github/schema'
@@ -27,7 +27,7 @@ prs.get('/prs', async (c) => {
     const validated = RawResponseSchema.parse(raw)
     const { viewerLogin, rateLimit, pullRequests } = transform(validated)
 
-    const seenRepos = summarizeSeenRepos(pullRequests)
+    const trackableRepos = summarizeTrackableRepos(pullRequests)
     const filtered = pullRequests.filter(pr =>
       allowSet.has(`${pr.repository.owner}/${pr.repository.name}`),
     )
@@ -46,7 +46,7 @@ prs.get('/prs', async (c) => {
       buckets,
       syncedAt: new Date().toISOString(),
       rateLimit,
-      seenRepos,
+      trackableRepos,
     })
     return c.json(body)
   } catch (err) {

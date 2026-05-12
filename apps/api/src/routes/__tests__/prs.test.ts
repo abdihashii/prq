@@ -27,7 +27,7 @@ beforeEach(() => {
 })
 
 describe('GET /api/prs', () => {
-  it('empty repos param → no PRs in buckets, full seenRepos returned', async () => {
+  it('empty repos param → no PRs in buckets, full trackableRepos returned', async () => {
     mockedFetch.mockResolvedValue(rawForRepos([
       { owner: 'vercel', name: 'next.js', id: 'PR_a' },
       { owner: 'facebook', name: 'react', id: 'PR_b' },
@@ -42,13 +42,13 @@ describe('GET /api/prs', () => {
     expect(body.buckets.ready).toEqual([])
     expect(body.buckets.waiting).toEqual([])
     expect(body.buckets.drafts).toEqual([])
-    expect(body.seenRepos).toEqual([
+    expect(body.trackableRepos).toEqual([
       { owner: 'facebook', name: 'react', prCount: 1 },
       { owner: 'vercel', name: 'next.js', prCount: 1 },
     ])
   })
 
-  it('allowlist filter keeps only matching PRs; seenRepos remains pre-filter', async () => {
+  it('allowlist filter keeps only matching PRs; trackableRepos remains pre-filter', async () => {
     mockedFetch.mockResolvedValue(rawForRepos([
       { owner: 'vercel', name: 'next.js', id: 'PR_a' },
       { owner: 'facebook', name: 'react', id: 'PR_b' },
@@ -60,7 +60,7 @@ describe('GET /api/prs', () => {
     const body = await res.json()
     expect(body.buckets.waiting).toHaveLength(1)
     expect(body.buckets.waiting[0].repository).toEqual({ owner: 'vercel', name: 'next.js' })
-    expect(body.seenRepos).toHaveLength(2)
+    expect(body.trackableRepos).toHaveLength(2)
   })
 
   it('accepts double-encoded slash (server-side defensive decode)', async () => {
@@ -92,7 +92,7 @@ describe('GET /api/prs', () => {
     expect(body.buckets.waiting[0].repository).toEqual({ owner: 'vercel', name: 'next.js' })
   })
 
-  it('seenRepos aggregates prCount across same-repo PRs', async () => {
+  it('trackableRepos aggregates prCount across same-repo PRs', async () => {
     mockedFetch.mockResolvedValue(rawForRepos([
       { owner: 'vercel', name: 'next.js', id: 'PR_a' },
       { owner: 'vercel', name: 'next.js', id: 'PR_b' },
@@ -102,7 +102,7 @@ describe('GET /api/prs', () => {
     const res = await makeApp().request('/api/prs')
     const body = await res.json()
 
-    expect(body.seenRepos).toEqual([
+    expect(body.trackableRepos).toEqual([
       { owner: 'facebook', name: 'react', prCount: 1 },
       { owner: 'vercel', name: 'next.js', prCount: 2 },
     ])

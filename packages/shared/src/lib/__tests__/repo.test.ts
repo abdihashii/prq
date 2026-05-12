@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PullRequest } from '../../types/pullRequest'
-import { parseRepoList, summarizeSeenRepos } from '../repo'
+import { parseRepoList, summarizeTrackableRepos } from '../repo'
 
 describe('parseRepoList', () => {
   it('returns [] for undefined', () => {
@@ -47,20 +47,20 @@ type PrFixture = Pick<PullRequest, 'repository'>
 
 const pr = (owner: string, name: string): PrFixture => ({ repository: { owner, name } })
 
-describe('summarizeSeenRepos', () => {
+describe('summarizeTrackableRepos', () => {
   it('returns [] for no PRs', () => {
-    expect(summarizeSeenRepos([] as PullRequest[])).toEqual([])
+    expect(summarizeTrackableRepos([] as PullRequest[])).toEqual([])
   })
 
   it('counts a single PR', () => {
-    expect(summarizeSeenRepos([pr('vercel', 'next.js')] as PullRequest[])).toEqual([
+    expect(summarizeTrackableRepos([pr('vercel', 'next.js')] as PullRequest[])).toEqual([
       { owner: 'vercel', name: 'next.js', prCount: 1 },
     ])
   })
 
   it('aggregates PRs from the same repo', () => {
     expect(
-      summarizeSeenRepos([
+      summarizeTrackableRepos([
         pr('vercel', 'next.js'),
         pr('vercel', 'next.js'),
         pr('vercel', 'next.js'),
@@ -69,7 +69,7 @@ describe('summarizeSeenRepos', () => {
   })
 
   it('returns results sorted alphabetically by owner/name', () => {
-    const result = summarizeSeenRepos([
+    const result = summarizeTrackableRepos([
       pr('zzz', 'a'),
       pr('aaa', 'z'),
       pr('mmm', 'm'),
@@ -83,7 +83,7 @@ describe('summarizeSeenRepos', () => {
   })
 
   it('keeps prCount accurate across mixed repos', () => {
-    const result = summarizeSeenRepos([
+    const result = summarizeTrackableRepos([
       pr('aaa', 'one'),
       pr('bbb', 'two'),
       pr('aaa', 'one'),
