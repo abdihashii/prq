@@ -2,6 +2,7 @@ import type { Bucket, PullRequest } from '@prq/shared'
 import type { LucideIcon } from 'lucide-react'
 import { Check, Clock, MessageSquare, X } from 'lucide-react'
 import { Badge } from '#/components/ui/badge.js'
+import { formatNumber } from '#/lib/format-number.js'
 import { formatRelativeTime } from '#/lib/format-relative-time/format-relative-time.js'
 import type { CiStatusKind, ReviewBadgeLabel } from '#/lib/pr-display/pr-display.js'
 import {
@@ -61,12 +62,12 @@ export function PrRow({ pr, bucket }: PrRowProps) {
         {pr.commentsTotalCount > 0 && (
           <span className="flex items-center gap-1 text-muted-foreground">
             <MessageSquare className="size-3" />
-            {pr.commentsTotalCount}
+            {formatNumber(pr.commentsTotalCount)}
           </span>
         )}
         {pr.unresolvedThreadCount > 0 && (
           <span className="text-amber-600">
-            {pr.unresolvedThreadCount} unresolved
+            {formatNumber(pr.unresolvedThreadCount)} unresolved
           </span>
         )}
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">

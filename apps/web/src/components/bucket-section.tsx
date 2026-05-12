@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from '#/components/ui/card.js'
 import { Separator } from '#/components/ui/separator.js'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip.js'
 import { BUCKET_DISPLAY } from '#/lib/bucket-display.js'
+import { formatNumber } from '#/lib/format-number.js'
 import { cn } from '#/lib/utils.js'
 
 interface BucketSectionProps {
@@ -23,7 +24,7 @@ export function BucketSection({ bucket, prs }: BucketSectionProps) {
         <span className={cn('font-semibold', isEmpty && 'text-muted-foreground font-medium')}>
           {label}
         </span>
-        <span className="text-muted-foreground">({prs.length})</span>
+        <span className="text-muted-foreground">({formatNumber(prs.length)})</span>
         <Tooltip>
           <TooltipTrigger
             aria-label={`About ${label}`}

@@ -1,4 +1,5 @@
 import type { Bucket, PullRequest, RequestedReviewer } from '@prq/shared'
+import { formatNumber } from '#/lib/format-number.js'
 
 export type CiStatusKind = 'success' | 'pending' | 'failure'
 
@@ -59,12 +60,12 @@ export function getBucketMetaSuffix(pr: PullRequest, bucket: Bucket): string | n
   }
   if (bucket === 'drafts') {
     const n = pr.commitsTotalCount
-    return `${n} commit${n === 1 ? '' : 's'}`
+    return `${formatNumber(n)} commit${n === 1 ? '' : 's'}`
   }
   if (bucket === 'attention') {
     const n = pr.unresolvedThreadCount
     if (n === 0) return null
-    const base = `${n} unresolved comment${n === 1 ? '' : 's'}`
+    const base = `${formatNumber(n)} unresolved comment${n === 1 ? '' : 's'}`
     if (pr.unresolvedThreadAuthors.length === 0) return base
     return `${base} from ${formatHandleList(pr.unresolvedThreadAuthors)}`
   }
