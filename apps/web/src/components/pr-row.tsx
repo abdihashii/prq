@@ -70,7 +70,7 @@ export function PrRow({ pr, bucket }: PrRowProps) {
           </span>
         )}
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          <span className="inline-block w-[2ch] text-right">{updated.digits}</span>
+          <span className="inline-block min-w-[2ch] text-right">{updated.digits}</span>
           {updated.unit}
         </span>
       </div>
