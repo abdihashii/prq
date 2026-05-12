@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Settings } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Dashboard } from '@/components/dashboard'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { ErrorBanner } from '@/components/error-banner'
@@ -10,13 +10,22 @@ import { SettingsPanel } from '@/components/settings-panel'
 import { Button } from '@/components/ui/button'
 import { useNotificationBadge } from '@/hooks/use-notification-badge'
 import { usePullRequests } from '@/hooks/use-pull-requests'
+import { useSettings } from '@/hooks/use-settings'
 import { ApiError } from '@/lib/api-error'
 
 export const Route = createFileRoute('/')({ component: Home })
 
 function Home() {
-  const query = usePullRequests()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [viewerLogin, setViewerLogin] = useState<string | null>(null)
+
+  const { pollingMs, trackedRepos, setPollingMs, setTrackedRepos } = useSettings(viewerLogin)
+  const query = usePullRequests({ pollingMs, trackedRepos })
+
+  useEffect(() => {
+    const next = query.data?.viewerLogin ?? null
+    if (next !== null && next !== viewerLogin) setViewerLogin(next)
+  }, [query.data?.viewerLogin, viewerLogin])
 
   const fatalAuthError =
     query.error instanceof ApiError && query.error.code === 'BAD_CREDENTIALS'
@@ -26,9 +35,20 @@ function Home() {
       (query.data?.buckets.attention.length ?? 0)
   useNotificationBadge(badgeCount)
 
+  const trackableRepos = query.data?.trackableRepos ?? []
+  const showOnboarding = !fatalAuthError && query.data !== undefined && trackedRepos.length === 0
+
   return (
     <>
-      <SettingsPanel open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsPanel
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        pollingMs={pollingMs}
+        trackedRepos={trackedRepos}
+        trackableRepos={trackableRepos}
+        onPollingMsChange={setPollingMs}
+        onTrackedReposChange={setTrackedRepos}
+      />
       {fatalAuthError ? (
         <PatErrorPage onOpenSettings={() => setSettingsOpen(true)} />
       ) : (
@@ -60,9 +80,29 @@ function Home() {
             />
           )}
 
-          {query.data ? <Dashboard data={query.data} /> : <DashboardSkeleton />}
+          {showOnboarding ? (
+            <OnboardingEmptyState onOpenSettings={() => setSettingsOpen(true)} />
+          ) : query.data ? (
+            <Dashboard data={query.data} />
+          ) : (
+            <DashboardSkeleton />
+          )}
         </main>
       )}
     </>
+  )
+}
+
+function OnboardingEmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
+  return (
+    <div className="border-input rounded-md border p-8 text-center">
+      <h2 className="text-base font-medium">Select repos in Settings to start tracking PRs.</h2>
+      <p className="text-muted-foreground mt-1 text-sm">
+        prq filters to repos you opt into. Choose any with open PRs to populate your dashboard.
+      </p>
+      <Button onClick={onOpenSettings} className="mt-4" size="sm">
+        Open Settings
+      </Button>
+    </div>
   )
 }
