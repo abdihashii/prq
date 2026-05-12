@@ -1,0 +1,110 @@
+import { Hono } from 'hono'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fetchPullRequests } from '../../github/client'
+import { makeRawPr, makeRawResponse } from '../../github/__tests__/fixtures'
+import { prs } from '../prs'
+
+vi.mock('../../github/client', () => ({
+  fetchPullRequests: vi.fn(),
+}))
+
+const mockedFetch = vi.mocked(fetchPullRequests)
+
+const rawForRepos = (entries: Array<{ owner: string, name: string, id: string }>) =>
+  makeRawResponse({
+    authored: entries.map(({ owner, name, id }) =>
+      makeRawPr({
+        id,
+        repository: { name, owner: { login: owner } },
+      }),
+    ),
+  })
+
+const makeApp = () => new Hono().route('/api', prs)
+
+beforeEach(() => {
+  mockedFetch.mockReset()
+})
+
+describe('GET /api/prs', () => {
+  it('empty repos param → no PRs in buckets, full seenRepos returned', async () => {
+    mockedFetch.mockResolvedValue(rawForRepos([
+      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
+      { owner: 'facebook', name: 'react', id: 'PR_b' },
+    ]))
+
+    const res = await makeApp().request('/api/prs')
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.buckets.review).toEqual([])
+    expect(body.buckets.attention).toEqual([])
+    expect(body.buckets.ready).toEqual([])
+    expect(body.buckets.waiting).toEqual([])
+    expect(body.buckets.drafts).toEqual([])
+    expect(body.seenRepos).toEqual([
+      { owner: 'facebook', name: 'react', prCount: 1 },
+      { owner: 'vercel', name: 'next.js', prCount: 1 },
+    ])
+  })
+
+  it('allowlist filter keeps only matching PRs; seenRepos remains pre-filter', async () => {
+    mockedFetch.mockResolvedValue(rawForRepos([
+      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
+      { owner: 'facebook', name: 'react', id: 'PR_b' },
+    ]))
+
+    const res = await makeApp().request('/api/prs?repos=vercel%2Fnext.js')
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.buckets.waiting).toHaveLength(1)
+    expect(body.buckets.waiting[0].repository).toEqual({ owner: 'vercel', name: 'next.js' })
+    expect(body.seenRepos).toHaveLength(2)
+  })
+
+  it('accepts double-encoded slash (server-side defensive decode)', async () => {
+    mockedFetch.mockResolvedValue(rawForRepos([
+      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
+    ]))
+
+    const res = await makeApp().request(
+      '/api/prs?repos=vercel%252Fnext.js',
+    )
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.buckets.waiting).toHaveLength(1)
+  })
+
+  it('malformed repos entries are silently dropped (never 400)', async () => {
+    mockedFetch.mockResolvedValue(rawForRepos([
+      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
+    ]))
+
+    const res = await makeApp().request(
+      '/api/prs?repos=garbage,vercel%2Fnext.js,too%2Fmany%2Fslashes',
+    )
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.buckets.waiting).toHaveLength(1)
+    expect(body.buckets.waiting[0].repository).toEqual({ owner: 'vercel', name: 'next.js' })
+  })
+
+  it('seenRepos aggregates prCount across same-repo PRs', async () => {
+    mockedFetch.mockResolvedValue(rawForRepos([
+      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
+      { owner: 'vercel', name: 'next.js', id: 'PR_b' },
+      { owner: 'facebook', name: 'react', id: 'PR_c' },
+    ]))
+
+    const res = await makeApp().request('/api/prs')
+    const body = await res.json()
+
+    expect(body.seenRepos).toEqual([
+      { owner: 'facebook', name: 'react', prCount: 1 },
+      { owner: 'vercel', name: 'next.js', prCount: 2 },
+    ])
+  })
+})

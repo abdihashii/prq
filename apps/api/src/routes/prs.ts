@@ -3,7 +3,9 @@ import { type Context, Hono } from 'hono'
 import {
   type Bucket,
   BucketedResponseSchema,
+  parseRepoList,
   type PullRequest,
+  summarizeSeenRepos,
 } from '@prq/shared'
 import { fetchPullRequests } from '../github/client'
 import { RawResponseSchema } from '../github/schema'
@@ -13,9 +15,22 @@ export const prs = new Hono()
 
 prs.get('/prs', async (c) => {
   try {
+    // @hono/node-server leaves %2F (slash) in query values un-decoded, while
+    // app.request() in tests decodes automatically — call decodeURIComponent
+    // so both paths converge before parsing.
+    const reposParam = c.req.query('repos')
+    const allowSet = new Set(
+      parseRepoList(reposParam ? decodeURIComponent(reposParam) : undefined),
+    )
+
     const raw = await fetchPullRequests()
     const validated = RawResponseSchema.parse(raw)
     const { viewerLogin, rateLimit, pullRequests } = transform(validated)
+
+    const seenRepos = summarizeSeenRepos(pullRequests)
+    const filtered = pullRequests.filter(pr =>
+      allowSet.has(`${pr.repository.owner}/${pr.repository.name}`),
+    )
 
     const buckets: Record<Bucket, PullRequest[]> = {
       review: [],
@@ -24,13 +39,14 @@ prs.get('/prs', async (c) => {
       waiting: [],
       drafts: [],
     }
-    for (const pr of pullRequests) buckets[pr.bucket].push(pr)
+    for (const pr of filtered) buckets[pr.bucket].push(pr)
 
     const body = BucketedResponseSchema.parse({
       viewerLogin,
       buckets,
       syncedAt: new Date().toISOString(),
       rateLimit,
+      seenRepos,
     })
     return c.json(body)
   } catch (err) {
