@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { PullRequestSchema } from './pullRequest'
+import { SeenRepoSchema } from './seenRepo'
 
 export const RateLimitSchema = z.object({
   cost: z.number().int().nonnegative(),
@@ -18,6 +19,7 @@ export const BucketedResponseSchema = z.object({
   viewerLogin: z.string(),
   syncedAt: z.iso.datetime(),
   rateLimit: RateLimitSchema,
+  seenRepos: z.array(SeenRepoSchema),
 })
 
 export const ApiErrorCodeSchema = z.enum(['BAD_CREDENTIALS', 'RATE_LIMITED', 'UPSTREAM_ERROR'])
