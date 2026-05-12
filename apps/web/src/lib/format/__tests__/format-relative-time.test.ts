@@ -33,6 +33,13 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(ago(60 * 60 * 24 * 7), now)).toEqual({ digits: '7', unit: 'd ago' })
   })
 
+  it('comma-separates digits for large day counts', () => {
+    expect(formatRelativeTime(ago(60 * 60 * 24 * 1234), now)).toEqual({
+      digits: '1,234',
+      unit: 'd ago',
+    })
+  })
+
   it('clamps future dates to 0s ago', () => {
     const future = new Date(now.getTime() + 5000).toISOString()
     expect(formatRelativeTime(future, now)).toEqual({ digits: '0', unit: 's ago' })
