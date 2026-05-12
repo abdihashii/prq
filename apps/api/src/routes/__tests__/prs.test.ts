@@ -107,4 +107,53 @@ describe('GET /api/prs', () => {
       { owner: 'vercel', name: 'next.js', prCount: 2 },
     ])
   })
+
+  it('trackableRepos includes owned repos with prCount: 0 (no PRs)', async () => {
+    mockedFetch.mockResolvedValue(
+      makeRawResponse({
+        ownedRepos: [
+          { owner: 'haji', name: 'dotfiles' },
+          { owner: 'haji', name: 'salahtimes' },
+        ],
+      }),
+    )
+
+    const res = await makeApp().request('/api/prs')
+    const body = await res.json()
+
+    expect(body.trackableRepos).toEqual([
+      { owner: 'haji', name: 'dotfiles', prCount: 0 },
+      { owner: 'haji', name: 'salahtimes', prCount: 0 },
+    ])
+  })
+
+  it('trackableRepos merges owned repos with PR-derived repos', async () => {
+    mockedFetch.mockResolvedValue(
+      makeRawResponse({
+        ownedRepos: [
+          { owner: 'haji', name: 'dotfiles' },
+          { owner: 'haji', name: 'salahtimes' },
+        ],
+        authored: [
+          makeRawPr({
+            id: 'PR_owned',
+            repository: { name: 'salahtimes', owner: { login: 'haji' } },
+          }),
+          makeRawPr({
+            id: 'PR_external',
+            repository: { name: 'next.js', owner: { login: 'vercel' } },
+          }),
+        ],
+      }),
+    )
+
+    const res = await makeApp().request('/api/prs')
+    const body = await res.json()
+
+    expect(body.trackableRepos).toEqual([
+      { owner: 'haji', name: 'dotfiles', prCount: 0 },
+      { owner: 'haji', name: 'salahtimes', prCount: 1 },
+      { owner: 'vercel', name: 'next.js', prCount: 1 },
+    ])
+  })
 })

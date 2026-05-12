@@ -3,9 +3,9 @@ import { type Context, Hono } from 'hono'
 import {
   type Bucket,
   BucketedResponseSchema,
+  mergeTrackableRepos,
   parseRepoList,
   type PullRequest,
-  summarizeTrackableRepos,
 } from '@prq/shared'
 import { fetchPullRequests } from '../github/client'
 import { RawResponseSchema } from '../github/schema'
@@ -25,9 +25,9 @@ prs.get('/prs', async (c) => {
 
     const raw = await fetchPullRequests()
     const validated = RawResponseSchema.parse(raw)
-    const { viewerLogin, rateLimit, pullRequests } = transform(validated)
+    const { viewerLogin, rateLimit, pullRequests, ownedRepos } = transform(validated)
 
-    const trackableRepos = summarizeTrackableRepos(pullRequests)
+    const trackableRepos = mergeTrackableRepos(ownedRepos, pullRequests)
     const filtered = pullRequests.filter(pr =>
       allowSet.has(`${pr.repository.owner}/${pr.repository.name}`),
     )

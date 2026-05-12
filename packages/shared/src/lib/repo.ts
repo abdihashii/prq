@@ -43,34 +43,53 @@ export function parseRepoList(input: string | undefined): string[] {
 }
 
 /**
- * Collapse a list of pull requests into per-repo summary entries for the
- * settings picker. Each distinct `owner/name` becomes one entry with the
- * count of PRs from that repo in the input. Output is sorted alphabetically
- * by `owner/name` so the frontend can render directly without re-sorting.
+ * Build the universe of repos the settings picker shows: the user's owned
+ * repositories (fetched server-side from GitHub) merged with any repo that
+ * appears in their PR firehose. Repos with at least one matching PR get
+ * `prCount` set to that count; owned repos without open PRs get `prCount: 0`.
+ * Output is sorted alphabetically by `owner/name` so the frontend can render
+ * directly without re-sorting.
  *
- * @param prs - Pre-filter pull requests. Pass the full list so the picker
- *   can show repos the user might want to opt into, not just repos that
- *   survived filtering.
- * @returns One entry per distinct repo, alphabetically sorted, with
- *   `prCount` matching occurrences in the input.
+ * @param ownedRepos - Repos returned by GitHub's `viewer.repositories`
+ *   (owner-affiliation only). Provides the baseline universe.
+ * @param prs - Pre-filter pull requests. Any repo here that isn't in
+ *   `ownedRepos` is added (e.g., review-requested on a repo the viewer
+ *   doesn't own).
+ * @returns One entry per distinct repo, alphabetically sorted.
  *
  * @example
- * summarizeTrackableRepos([
- *   { repository: { owner: 'vercel', name: 'next.js' }, ...},
- *   { repository: { owner: 'vercel', name: 'next.js' }, ...},
- *   { repository: { owner: 'facebook', name: 'react' }, ...},
- * ])
+ * mergeTrackableRepos(
+ *   [{ owner: 'haji', name: 'dotfiles' }, { owner: 'haji', name: 'salahtimes' }],
+ *   [{ repository: { owner: 'haji', name: 'salahtimes' }, ...}],
+ * )
  * // => [
- * //   { owner: 'facebook', name: 'react', prCount: 1 },
- * //   { owner: 'vercel', name: 'next.js', prCount: 2 },
+ * //   { owner: 'haji', name: 'dotfiles',  prCount: 0 },
+ * //   { owner: 'haji', name: 'salahtimes', prCount: 1 },
  * // ]
  *
  * @example
- * summarizeTrackableRepos([])
+ * // Review-requested on a repo the viewer doesn't own — included anyway.
+ * mergeTrackableRepos(
+ *   [{ owner: 'haji', name: 'dotfiles' }],
+ *   [{ repository: { owner: 'vercel', name: 'next.js' }, ...}],
+ * )
+ * // => [
+ * //   { owner: 'haji', name: 'dotfiles', prCount: 0 },
+ * //   { owner: 'vercel', name: 'next.js', prCount: 1 },
+ * // ]
+ *
+ * @example
+ * mergeTrackableRepos([], [])
  * // => []
  */
-export function summarizeTrackableRepos(prs: PullRequest[]): TrackableRepo[] {
+export function mergeTrackableRepos(
+  ownedRepos: ReadonlyArray<{ owner: string, name: string }>,
+  prs: PullRequest[],
+): TrackableRepo[] {
   const map = new Map<string, TrackableRepo>()
+  for (const r of ownedRepos) {
+    map.set(`${r.owner}/${r.name}`, { owner: r.owner, name: r.name, prCount: 0 })
+  }
   for (const pr of prs) {
     const key = `${pr.repository.owner}/${pr.repository.name}`
     const existing = map.get(key)

@@ -22,4 +22,4 @@ export type { TrackableRepo } from './types/trackableRepo'
 export type { PollingMs, Settings, TrackedRepos } from './types/settings'
 
 export { assignBucket } from './lib/bucket'
-export { parseRepoList, summarizeTrackableRepos } from './lib/repo'
+export { mergeTrackableRepos, parseRepoList } from './lib/repo'

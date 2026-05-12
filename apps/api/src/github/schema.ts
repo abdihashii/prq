@@ -96,8 +96,18 @@ const SearchResult = z.object({
   nodes: z.array(SearchNode.nullable()).nullable(),
 })
 
+const RawOwnedRepo = z.object({
+  name: z.string(),
+  owner: z.object({ login: z.string() }),
+})
+
 export const RawResponseSchema = z.object({
-  viewer: z.object({ login: z.string() }),
+  viewer: z.object({
+    login: z.string(),
+    repositories: z.object({
+      nodes: z.array(RawOwnedRepo.nullable()).nullable(),
+    }),
+  }),
   rateLimit: z
     .object({
       cost: z.number().int().nonnegative(),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { PullRequest } from '../../types/pullRequest'
-import { parseRepoList, summarizeTrackableRepos } from '../repo'
+import { mergeTrackableRepos, parseRepoList } from '../repo'
 
 describe('parseRepoList', () => {
   it('returns [] for undefined', () => {
@@ -46,35 +46,51 @@ describe('parseRepoList', () => {
 type PrFixture = Pick<PullRequest, 'repository'>
 
 const pr = (owner: string, name: string): PrFixture => ({ repository: { owner, name } })
+const repo = (owner: string, name: string) => ({ owner, name })
 
-describe('summarizeTrackableRepos', () => {
-  it('returns [] for no PRs', () => {
-    expect(summarizeTrackableRepos([] as PullRequest[])).toEqual([])
+describe('mergeTrackableRepos', () => {
+  it('returns [] when both inputs are empty', () => {
+    expect(mergeTrackableRepos([], [] as PullRequest[])).toEqual([])
   })
 
-  it('counts a single PR', () => {
-    expect(summarizeTrackableRepos([pr('vercel', 'next.js')] as PullRequest[])).toEqual([
+  it('emits owned repos with prCount: 0 when no PRs match', () => {
+    expect(
+      mergeTrackableRepos(
+        [repo('haji', 'dotfiles'), repo('haji', 'salahtimes')],
+        [] as PullRequest[],
+      ),
+    ).toEqual([
+      { owner: 'haji', name: 'dotfiles', prCount: 0 },
+      { owner: 'haji', name: 'salahtimes', prCount: 0 },
+    ])
+  })
+
+  it('counts PRs against matching owned repos', () => {
+    expect(
+      mergeTrackableRepos(
+        [repo('haji', 'salahtimes')],
+        [pr('haji', 'salahtimes'), pr('haji', 'salahtimes')] as PullRequest[],
+      ),
+    ).toEqual([{ owner: 'haji', name: 'salahtimes', prCount: 2 }])
+  })
+
+  it('includes repos that appear only in PRs (e.g. review-requested non-owned)', () => {
+    expect(
+      mergeTrackableRepos(
+        [repo('haji', 'dotfiles')],
+        [pr('vercel', 'next.js')] as PullRequest[],
+      ),
+    ).toEqual([
+      { owner: 'haji', name: 'dotfiles', prCount: 0 },
       { owner: 'vercel', name: 'next.js', prCount: 1 },
     ])
   })
 
-  it('aggregates PRs from the same repo', () => {
-    expect(
-      summarizeTrackableRepos([
-        pr('vercel', 'next.js'),
-        pr('vercel', 'next.js'),
-        pr('vercel', 'next.js'),
-      ] as PullRequest[]),
-    ).toEqual([{ owner: 'vercel', name: 'next.js', prCount: 3 }])
-  })
-
   it('returns results sorted alphabetically by owner/name', () => {
-    const result = summarizeTrackableRepos([
-      pr('zzz', 'a'),
-      pr('aaa', 'z'),
-      pr('mmm', 'm'),
-    ] as PullRequest[])
-
+    const result = mergeTrackableRepos(
+      [repo('zzz', 'a'), repo('aaa', 'z'), repo('mmm', 'm')],
+      [] as PullRequest[],
+    )
     expect(result.map(r => `${r.owner}/${r.name}`)).toEqual([
       'aaa/z',
       'mmm/m',
@@ -82,18 +98,12 @@ describe('summarizeTrackableRepos', () => {
     ])
   })
 
-  it('keeps prCount accurate across mixed repos', () => {
-    const result = summarizeTrackableRepos([
-      pr('aaa', 'one'),
-      pr('bbb', 'two'),
-      pr('aaa', 'one'),
-      pr('bbb', 'two'),
-      pr('aaa', 'one'),
-    ] as PullRequest[])
-
-    expect(result).toEqual([
-      { owner: 'aaa', name: 'one', prCount: 3 },
-      { owner: 'bbb', name: 'two', prCount: 2 },
-    ])
+  it('does not duplicate owned repos that also appear in PRs', () => {
+    const result = mergeTrackableRepos(
+      [repo('haji', 'salahtimes')],
+      [pr('haji', 'salahtimes')] as PullRequest[],
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0]).toEqual({ owner: 'haji', name: 'salahtimes', prCount: 1 })
   })
 })

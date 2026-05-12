@@ -1,6 +1,18 @@
 query GetPullRequests {
   viewer {
     login
+    repositories(
+      first: 100
+      ownerAffiliations: [OWNER]
+      orderBy: { field: NAME, direction: ASC }
+    ) {
+      nodes {
+        name
+        owner {
+          login
+        }
+      }
+    }
   }
   rateLimit {
     cost
