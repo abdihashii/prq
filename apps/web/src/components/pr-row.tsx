@@ -68,7 +68,7 @@ export function PrRow({ pr, bucket }: PrRowProps) {
             {pr.unresolvedThreadCount} unresolved
           </span>
         )}
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
           {formatRelativeTime(pr.updatedAt)}
         </span>
       </div>

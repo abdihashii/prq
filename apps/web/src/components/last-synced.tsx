@@ -23,7 +23,7 @@ export function LastSynced({ dataUpdatedAt, isFetching }: LastSyncedProps) {
 
   return (
     <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-      <span>{label}</span>
+      <span className="tabular-nums">{label}</span>
       {isFetching && <Loader2 className="size-3 animate-spin" aria-label="Refreshing" />}
     </div>
   )
