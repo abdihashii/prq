@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from '#/components/ui/card.js'
 import { Separator } from '#/components/ui/separator.js'
 import { Tooltip, TooltipContent, TooltipTrigger } from '#/components/ui/tooltip.js'
 import { BUCKET_DISPLAY } from '#/lib/bucket-display.js'
-import { formatNumber } from '#/lib/format-number.js'
+import { formatNumber } from '#/lib/format/format.js'
 import { cn } from '#/lib/utils.js'
 
 interface BucketSectionProps {

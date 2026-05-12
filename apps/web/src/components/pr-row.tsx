@@ -2,8 +2,7 @@ import type { Bucket, PullRequest } from '@prq/shared'
 import type { LucideIcon } from 'lucide-react'
 import { Check, Clock, MessageSquare, X } from 'lucide-react'
 import { Badge } from '#/components/ui/badge.js'
-import { formatNumber } from '#/lib/format-number.js'
-import { formatRelativeTime } from '#/lib/format-relative-time/format-relative-time.js'
+import { formatNumber, formatRelativeTime } from '#/lib/format/format.js'
 import type { CiStatusKind, ReviewBadgeLabel } from '#/lib/pr-display/pr-display.js'
 import {
   getBucketMetaSuffix,

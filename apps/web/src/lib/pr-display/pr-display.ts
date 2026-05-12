@@ -1,5 +1,5 @@
 import type { Bucket, PullRequest, RequestedReviewer } from '@prq/shared'
-import { formatNumber } from '#/lib/format-number.js'
+import { formatNumber } from '#/lib/format/format.js'
 
 export type CiStatusKind = 'success' | 'pending' | 'failure'
 

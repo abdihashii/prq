@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { formatRelativeTime } from '#/lib/format-relative-time/format-relative-time.js'
+import { formatRelativeTime } from '#/lib/format/format.js'
 
 interface LastSyncedProps {
   dataUpdatedAt: number
