@@ -1,5 +1,5 @@
 import { assignBucket, type PullRequest, type RequestedReviewer } from '@prq/shared'
-import type { RawPullRequest, RawResponse } from './schema.js'
+import type { RawPullRequest, RawResponse } from './schema'
 
 export interface TransformResult {
   viewerLogin: string

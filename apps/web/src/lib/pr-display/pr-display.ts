@@ -1,5 +1,5 @@
 import type { Bucket, PullRequest, RequestedReviewer } from '@prq/shared'
-import { formatNumber } from '#/lib/format/format'
+import { formatNumber } from '@/lib/format/format'
 
 export type CiStatusKind = 'success' | 'pending' | 'failure'
 

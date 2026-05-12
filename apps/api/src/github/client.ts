@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { graphql } from '@octokit/graphql'
-import { env } from '../env.js'
+import { env } from '../env'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const QUERY = readFileSync(join(here, '../queries/getPullRequests.graphql'), 'utf8')

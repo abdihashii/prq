@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Dashboard } from '#/components/dashboard'
-import { DashboardSkeleton } from '#/components/dashboard-skeleton'
-import { ErrorBanner } from '#/components/error-banner'
-import { LastSynced } from '#/components/last-synced'
-import { PatErrorPage } from '#/components/pat-error-page'
-import { usePullRequests } from '#/hooks/use-pull-requests'
-import { ApiError } from '#/lib/api-error'
+import { Dashboard } from '@/components/dashboard'
+import { DashboardSkeleton } from '@/components/dashboard-skeleton'
+import { ErrorBanner } from '@/components/error-banner'
+import { LastSynced } from '@/components/last-synced'
+import { PatErrorPage } from '@/components/pat-error-page'
+import { usePullRequests } from '@/hooks/use-pull-requests'
+import { ApiError } from '@/lib/api-error'
 
 export const Route = createFileRoute('/')({ component: Home })
 

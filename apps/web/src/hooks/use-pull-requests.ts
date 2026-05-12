@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { getRefetchInterval } from '#/lib/poll-interval/poll-interval'
-import { fetchPullRequests } from '#/queries/pull-requests'
+import { getRefetchInterval } from '@/lib/poll-interval/poll-interval'
+import { fetchPullRequests } from '@/queries/pull-requests'
 
 export function usePullRequests() {
   return useQuery({

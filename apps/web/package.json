@@ -2,9 +2,6 @@
   "name": "@prq/web",
   "private": true,
   "type": "module",
-  "imports": {
-    "#/*": "./src/*"
-  },
   "scripts": {
     "dev": "vite dev --port 5173",
     "build": "vite build",

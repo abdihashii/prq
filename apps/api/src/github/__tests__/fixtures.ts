@@ -1,4 +1,4 @@
-import type { RawPullRequest, RawResponse } from '../schema.js'
+import type { RawPullRequest, RawResponse } from '../schema'
 
 const baseRawPr: RawPullRequest = {
   __typename: 'PullRequest',

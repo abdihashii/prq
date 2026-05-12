@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import { prs } from './routes/prs.js'
+import { prs } from './routes/prs'
 
 const app = new Hono()
 app.get('/health', c => c.json({ ok: true }))

@@ -1,6 +1,6 @@
 import type { BucketedResponse } from '@prq/shared'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError } from '#/lib/api-error'
+import { ApiError } from '@/lib/api-error'
 import { fetchPullRequests } from '../pull-requests'
 
 function jsonResponse(status: number, body: unknown): Response {

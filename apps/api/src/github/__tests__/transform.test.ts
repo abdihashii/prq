@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { transform } from '../transform.js'
-import { makeRawPr, makeRawResponse } from './fixtures.js'
+import { transform } from '../transform'
+import { makeRawPr, makeRawResponse } from './fixtures'
 
 describe('transform', () => {
   it('my draft → drafts', () => {

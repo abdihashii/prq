@@ -5,9 +5,9 @@ import {
   BucketedResponseSchema,
   type PullRequest,
 } from '@prq/shared'
-import { fetchPullRequests } from '../github/client.js'
-import { RawResponseSchema } from '../github/schema.js'
-import { transform } from '../github/transform.js'
+import { fetchPullRequests } from '../github/client'
+import { RawResponseSchema } from '../github/schema'
+import { transform } from '../github/transform'
 
 export const prs = new Hono()
 
