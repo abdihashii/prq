@@ -11,9 +11,10 @@ export function LastSynced({ dataUpdatedAt, isFetching }: LastSyncedProps) {
   const [, setTick] = useState(0)
 
   useEffect(() => {
+    if (isFetching) return
     const id = setInterval(() => setTick((t) => t + 1), 1000)
     return () => clearInterval(id)
-  }, [])
+  }, [isFetching])
 
   const label =
     dataUpdatedAt === 0
