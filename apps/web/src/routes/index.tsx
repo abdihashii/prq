@@ -4,6 +4,7 @@ import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { ErrorBanner } from '@/components/error-banner'
 import { LastSynced } from '@/components/last-synced'
 import { PatErrorPage } from '@/components/pat-error-page'
+import { useNotificationBadge } from '@/hooks/use-notification-badge'
 import { usePullRequests } from '@/hooks/use-pull-requests'
 import { ApiError } from '@/lib/api-error'
 
@@ -12,7 +13,15 @@ export const Route = createFileRoute('/')({ component: Home })
 function Home() {
   const query = usePullRequests()
 
-  if (query.error instanceof ApiError && query.error.code === 'BAD_CREDENTIALS') {
+  const fatalAuthError =
+    query.error instanceof ApiError && query.error.code === 'BAD_CREDENTIALS'
+  const badgeCount = fatalAuthError
+    ? 0
+    : (query.data?.buckets.review.length ?? 0) +
+      (query.data?.buckets.attention.length ?? 0)
+  useNotificationBadge(badgeCount)
+
+  if (fatalAuthError) {
     return <PatErrorPage />
   }
 
