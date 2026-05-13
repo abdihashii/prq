@@ -14,18 +14,11 @@ export function PatErrorPage({ onOpenSettings }: PatErrorPageProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground">
-            Update <Code>GITHUB_TOKEN</Code> in <Code>apps/api/.env</Code>, then restart the API
-            server.
+            Open Settings to set or update your GitHub PAT.
           </p>
           <Button onClick={onOpenSettings}>Open Settings</Button>
         </CardContent>
       </Card>
     </main>
-  )
-}
-
-function Code({ children }: { children: React.ReactNode }) {
-  return (
-    <code className="bg-muted text-foreground rounded px-1 py-0.5 text-sm">{children}</code>
   )
 }
