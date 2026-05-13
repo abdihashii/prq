@@ -53,16 +53,10 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const [draftPollingMs, setDraftPollingMs] = useState<PollingMs>(pollingMs)
   const [draftTrackedRepos, setDraftTrackedRepos] = useState<TrackedRepos>(trackedRepos)
 
-  useEffect(() => {
-    setDraftPollingMs(pollingMs)
-  }, [pollingMs])
-
-  useEffect(() => {
-    setDraftTrackedRepos(trackedRepos)
-  }, [trackedRepos])
-
   // Reset drafts to persisted state whenever the panel is opened, so closing
-  // without Save and reopening doesn't show stale edits.
+  // without Save and reopening doesn't show stale edits. We intentionally do
+  // NOT mirror persisted state into the drafts while the panel is open — that
+  // would silently revert an in-flight edit if external state changed mid-edit.
   useEffect(() => {
     if (open) {
       setDraftPollingMs(pollingMs)
