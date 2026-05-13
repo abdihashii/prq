@@ -1,35 +1,31 @@
 import type { TrackableRepo, TrackedRepos } from '@prq/shared'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { X } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 interface RepoPickerProps {
   trackableRepos: TrackableRepo[]
-  trackedRepos: TrackedRepos
-  onSave: (next: TrackedRepos) => void
+  draftTrackedRepos: TrackedRepos
+  onChange: (next: TrackedRepos) => void
 }
 
 const ROW_HEIGHT = 36
 
-export function RepoPicker({ trackableRepos, trackedRepos, onSave }: RepoPickerProps) {
-  const [draft, setDraft] = useState<Set<string>>(() => new Set(trackedRepos))
+export function RepoPicker({ trackableRepos, draftTrackedRepos, onChange }: RepoPickerProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    setDraft(new Set(trackedRepos))
-  }, [trackedRepos])
+  const draft = useMemo(() => new Set(draftTrackedRepos), [draftTrackedRepos])
 
   const allRepos = useMemo<TrackableRepo[]>(() => {
     const map = new Map<string, TrackableRepo>()
     for (const r of trackableRepos) {
       map.set(`${r.owner}/${r.name}`, r)
     }
-    for (const slug of trackedRepos) {
+    for (const slug of draftTrackedRepos) {
       if (map.has(slug)) continue
       const [owner, name] = slug.split('/')
       map.set(slug, { owner, name, prCount: 0 })
@@ -39,7 +35,7 @@ export function RepoPicker({ trackableRepos, trackedRepos, onSave }: RepoPickerP
       const bk = `${b.owner}/${b.name}`
       return ak < bk ? -1 : ak > bk ? 1 : 0
     })
-  }, [trackableRepos, trackedRepos])
+  }, [trackableRepos, draftTrackedRepos])
 
   const visibleRepos = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -55,24 +51,11 @@ export function RepoPicker({ trackableRepos, trackedRepos, onSave }: RepoPickerP
     overscan: 5,
   })
 
-  const isDirty
-    = draft.size !== trackedRepos.length
-      || trackedRepos.some(r => !draft.has(r))
-
   const toggle = (key: string) => {
-    setDraft((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
-
-  const handleSave = () => {
-    const ordered = allRepos
-      .map(r => `${r.owner}/${r.name}`)
-      .filter(k => draft.has(k))
-    onSave(ordered)
+    const next = new Set(draft)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    onChange(allRepos.map(r => `${r.owner}/${r.name}`).filter(k => next.has(k)))
   }
 
   const selectedSlugs = useMemo(
@@ -174,10 +157,6 @@ export function RepoPicker({ trackableRepos, trackedRepos, onSave }: RepoPickerP
           </div>
         )}
       </div>
-
-      <Button onClick={handleSave} disabled={!isDirty} size="sm">
-        Save
-      </Button>
     </div>
   )
 }
