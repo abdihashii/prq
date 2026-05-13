@@ -3,7 +3,9 @@ packages:
   - 'packages/*'
 
 catalog:
+  '@hookform/resolvers': ^5
   date-fns: ^4.1.0
+  react-hook-form: ^7
   typescript: ^6.0.2
   vitest: ^4.1.5
   zod: ^4
