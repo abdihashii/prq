@@ -1,5 +1,6 @@
 import { GraphqlResponseError } from '@octokit/graphql'
 import { type Context, Hono } from 'hono'
+import { getCookie } from 'hono/cookie'
 import {
   type Bucket,
   BucketedResponseSchema,
@@ -14,6 +15,14 @@ import { transform } from '../github/transform'
 export const prs = new Hono()
 
 prs.get('/prs', async (c) => {
+  const pat = getCookie(c, 'prq_pat')
+  if (!pat) {
+    return c.json(
+      { error: { code: 'BAD_CREDENTIALS', message: 'No GitHub PAT set' } },
+      401,
+    )
+  }
+
   try {
     // @hono/node-server leaves %2F (slash) in query values un-decoded, while
     // app.request() in tests decodes automatically — normalize via
@@ -31,7 +40,7 @@ prs.get('/prs', async (c) => {
     }
     const allowSet = new Set(parseRepoList(normalized))
 
-    const raw = await fetchPullRequests()
+    const raw = await fetchPullRequests(pat)
     const validated = RawResponseSchema.parse(raw)
     const { viewerLogin, rateLimit, pullRequests, ownedRepos } = transform(validated)
 
