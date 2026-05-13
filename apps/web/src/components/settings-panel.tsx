@@ -49,7 +49,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const isMobile = useIsMobile()
 
   const body = (
-    <div className="space-y-6 p-4">
+    <div className="flex-1 space-y-6 overflow-y-auto p-4">
       <section className="space-y-2">
         <Label htmlFor="polling-select">Polling cadence</Label>
         <Select
