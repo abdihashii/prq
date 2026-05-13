@@ -15,6 +15,7 @@ const validBucketedResponse: BucketedResponse = {
   viewerLogin: 'octocat',
   syncedAt: '2026-05-03T12:00:00.000Z',
   rateLimit: { cost: 5, remaining: 4995, resetAt: '2026-05-03T13:00:00.000Z' },
+  trackableRepos: [],
 }
 
 describe('fetchPullRequests', () => {
@@ -25,9 +26,29 @@ describe('fetchPullRequests', () => {
   it('resolves with parsed BucketedResponse on 200 + valid body', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, validBucketedResponse)))
 
-    const result = await fetchPullRequests()
+    const result = await fetchPullRequests([])
 
     expect(result).toEqual(validBucketedResponse)
+  })
+
+  it('fetches /api/prs without query string when trackedRepos is empty', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validBucketedResponse))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchPullRequests([])
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/prs')
+  })
+
+  it('appends ?repos= with comma-joined slugs when trackedRepos is non-empty', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validBucketedResponse))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchPullRequests(['vercel/next.js', 'facebook/react'])
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/prs?repos=vercel%2Fnext.js%2Cfacebook%2Freact',
+    )
   })
 
   it('throws ApiError with code BAD_CREDENTIALS on 401', async () => {
@@ -38,7 +59,7 @@ describe('fetchPullRequests', () => {
       ),
     )
 
-    await expect(fetchPullRequests()).rejects.toMatchObject({
+    await expect(fetchPullRequests([])).rejects.toMatchObject({
       name: 'ApiError',
       code: 'BAD_CREDENTIALS',
       message: 'GitHub PAT was rejected',
@@ -59,7 +80,7 @@ describe('fetchPullRequests', () => {
       ),
     )
 
-    const error = await fetchPullRequests().catch(e => e)
+    const error = await fetchPullRequests([]).catch(e => e)
 
     expect(error).toBeInstanceOf(ApiError)
     expect(error.code).toBe('RATE_LIMITED')
@@ -74,7 +95,7 @@ describe('fetchPullRequests', () => {
       ),
     )
 
-    await expect(fetchPullRequests()).rejects.toMatchObject({
+    await expect(fetchPullRequests([])).rejects.toMatchObject({
       name: 'ApiError',
       code: 'UPSTREAM_ERROR',
     })
@@ -83,6 +104,6 @@ describe('fetchPullRequests', () => {
   it('throws generic Error with HTTP status when error body does not match schema', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(500, { unexpected: 'shape' })))
 
-    await expect(fetchPullRequests()).rejects.toThrow('HTTP 500')
+    await expect(fetchPullRequests([])).rejects.toThrow('HTTP 500')
   })
 })

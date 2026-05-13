@@ -28,13 +28,22 @@ export function makeRawPr(overrides: Partial<RawPullRequest> = {}): RawPullReque
 export function makeRawResponse(
   opts: {
     viewerLogin?: string
+    ownedRepos?: Array<{ owner: string, name: string }>
     authored?: RawPullRequest[]
     reviewRequested?: RawPullRequest[]
     reviewedBy?: RawPullRequest[]
   } = {},
 ): RawResponse {
   return {
-    viewer: { login: opts.viewerLogin ?? 'me' },
+    viewer: {
+      login: opts.viewerLogin ?? 'me',
+      repositories: {
+        nodes: (opts.ownedRepos ?? []).map(r => ({
+          name: r.name,
+          owner: { login: r.owner },
+        })),
+      },
+    },
     rateLimit: { cost: 1, remaining: 4999, resetAt: '2026-01-01T01:00:00Z' },
     authored: { nodes: opts.authored ?? [] },
     reviewRequested: { nodes: opts.reviewRequested ?? [] },

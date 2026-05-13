@@ -30607,7 +30607,10 @@ export type WorkflowsParametersInput = {
 export type GetPullRequestsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 'User', login: string }, rateLimit?: { __typename: 'RateLimit', cost: number, remaining: number, resetAt: string } | null, authored: { __typename: 'SearchResultItemConnection', nodes?: Array<
+export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 'User', login: string, repositories: { __typename: 'RepositoryConnection', nodes?: Array<{ __typename: 'Repository', name: string, owner:
+          | { __typename: 'Organization', login: string }
+          | { __typename: 'User', login: string }
+         } | null> | null } }, rateLimit?: { __typename: 'RateLimit', cost: number, remaining: number, resetAt: string } | null, authored: { __typename: 'SearchResultItemConnection', nodes?: Array<
       | { __typename: 'App' }
       | { __typename: 'Discussion' }
       | { __typename: 'Issue' }

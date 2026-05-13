@@ -1,10 +1,16 @@
 import { assignBucket, type PullRequest, type RequestedReviewer } from '@prq/shared'
 import type { RawPullRequest, RawResponse } from './schema'
 
+export interface OwnedRepo {
+  owner: string
+  name: string
+}
+
 export interface TransformResult {
   viewerLogin: string
   rateLimit: NonNullable<RawResponse['rateLimit']>
   pullRequests: PullRequest[]
+  ownedRepos: OwnedRepo[]
 }
 
 export function transform(raw: RawResponse): TransformResult {
@@ -12,6 +18,10 @@ export function transform(raw: RawResponse): TransformResult {
     throw new Error('GitHub response missing rateLimit')
   }
   const viewerLogin = raw.viewer.login
+
+  const ownedRepos: OwnedRepo[] = (raw.viewer.repositories.nodes ?? [])
+    .filter((n): n is NonNullable<typeof n> => n !== null)
+    .map(r => ({ owner: r.owner.login, name: r.name }))
 
   const all = [
     ...(raw.authored.nodes ?? []),
@@ -32,7 +42,7 @@ export function transform(raw: RawResponse): TransformResult {
     .map((pr) => projectAndBucket(pr, viewerLogin))
     .filter((pr): pr is PullRequest => pr !== null)
 
-  return { viewerLogin, rateLimit: raw.rateLimit, pullRequests }
+  return { viewerLogin, rateLimit: raw.rateLimit, pullRequests, ownedRepos }
 }
 
 function projectAndBucket(raw: RawPullRequest, viewerLogin: string): PullRequest | null {

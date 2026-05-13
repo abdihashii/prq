@@ -3,6 +3,8 @@ import { type Context, Hono } from 'hono'
 import {
   type Bucket,
   BucketedResponseSchema,
+  mergeTrackableRepos,
+  parseRepoList,
   type PullRequest,
 } from '@prq/shared'
 import { fetchPullRequests } from '../github/client'
@@ -13,9 +15,30 @@ export const prs = new Hono()
 
 prs.get('/prs', async (c) => {
   try {
+    // @hono/node-server leaves %2F (slash) in query values un-decoded, while
+    // app.request() in tests decodes automatically — normalize via
+    // decodeURIComponent so both paths converge. Fall back to the raw value
+    // when the input contains a malformed `%` escape (decodeURIComponent
+    // throws URIError on those); parseRepoList's regex rejects it anyway,
+    // so the filter degrades to an empty allowSet instead of a 502.
+    const reposParam = c.req.query('repos')
+    let normalized: string | undefined = reposParam
+    try {
+      if (reposParam !== undefined) normalized = decodeURIComponent(reposParam)
+    }
+    catch {
+      normalized = reposParam
+    }
+    const allowSet = new Set(parseRepoList(normalized))
+
     const raw = await fetchPullRequests()
     const validated = RawResponseSchema.parse(raw)
-    const { viewerLogin, rateLimit, pullRequests } = transform(validated)
+    const { viewerLogin, rateLimit, pullRequests, ownedRepos } = transform(validated)
+
+    const trackableRepos = mergeTrackableRepos(ownedRepos, pullRequests)
+    const filtered = pullRequests.filter(pr =>
+      allowSet.has(`${pr.repository.owner}/${pr.repository.name}`),
+    )
 
     const buckets: Record<Bucket, PullRequest[]> = {
       review: [],
@@ -24,13 +47,14 @@ prs.get('/prs', async (c) => {
       waiting: [],
       drafts: [],
     }
-    for (const pr of pullRequests) buckets[pr.bucket].push(pr)
+    for (const pr of filtered) buckets[pr.bucket].push(pr)
 
     const body = BucketedResponseSchema.parse({
       viewerLogin,
       buckets,
       syncedAt: new Date().toISOString(),
       rateLimit,
+      trackableRepos,
     })
     return c.json(body)
   } catch (err) {
