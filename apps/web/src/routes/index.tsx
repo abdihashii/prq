@@ -36,7 +36,15 @@ function Home() {
   useNotificationBadge(badgeCount)
 
   const trackableRepos = query.data?.trackableRepos ?? []
-  const showOnboarding = !fatalAuthError && query.data !== undefined && trackedRepos.length === 0
+  // Gate on viewerLogin so the empty state can't render in the brief window
+  // between query resolution and useSettings hydrating from localStorage —
+  // otherwise returning users see an onboarding flash before their persisted
+  // trackedRepos load.
+  const showOnboarding
+    = !fatalAuthError
+      && query.data !== undefined
+      && viewerLogin !== null
+      && trackedRepos.length === 0
 
   return (
     <>
