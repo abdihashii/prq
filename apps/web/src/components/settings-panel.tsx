@@ -1,7 +1,9 @@
-import type { PollingMs, Settings, TrackableRepo, TrackedRepos } from '@prq/shared'
-import { POLLING_OPTIONS, SettingsSchema } from '@prq/shared'
+import type { PatSubmit, PollingMs, Settings, TrackableRepo, TrackedRepos } from '@prq/shared'
+import { PatSubmitSchema, POLLING_OPTIONS, SettingsSchema } from '@prq/shared'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Check, Loader2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { RepoPicker } from '@/components/repo-picker'
 import { Button } from '@/components/ui/button'
@@ -12,6 +14,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -29,6 +32,9 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useTokenHealth } from '@/hooks/use-token-health'
+import { ApiError } from '@/lib/api-error'
+import { deletePat, submitPat } from '@/queries/pat'
 
 interface SettingsPanelProps {
   open: boolean
@@ -36,8 +42,11 @@ interface SettingsPanelProps {
   pollingMs: PollingMs
   trackedRepos: TrackedRepos
   trackableRepos: TrackableRepo[]
+  trackableReposLoading: boolean
   onPollingMsChange: (ms: PollingMs) => void
   onTrackedReposChange: (repos: TrackedRepos) => void
+  onAuthChange: (signedIn: boolean) => void
+  signedOut: boolean
 }
 
 export function SettingsPanel(props: SettingsPanelProps) {
@@ -47,8 +56,11 @@ export function SettingsPanel(props: SettingsPanelProps) {
     pollingMs,
     trackedRepos,
     trackableRepos,
+    trackableReposLoading,
     onPollingMsChange,
     onTrackedReposChange,
+    onAuthChange,
+    signedOut,
   } = props
   const isMobile = useIsMobile()
 
@@ -76,6 +88,10 @@ export function SettingsPanel(props: SettingsPanelProps) {
   const body = (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 space-y-6 overflow-y-auto p-4">
+        <PatSection onAuthChange={onAuthChange} signedOut={signedOut} />
+
+        <Separator />
+
         <section className="space-y-2">
           <Label htmlFor="polling-select">Polling cadence</Label>
           <Controller
@@ -118,6 +134,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 trackableRepos={trackableRepos}
                 draftTrackedRepos={field.value}
                 onChange={field.onChange}
+                loading={trackableReposLoading}
               />
             )}
           />
@@ -161,5 +178,151 @@ export function SettingsPanel(props: SettingsPanelProps) {
         {body}
       </SheetContent>
     </Sheet>
+  )
+}
+
+function PatSection({
+  onAuthChange,
+  signedOut,
+}: {
+  onAuthChange: (signedIn: boolean) => void
+  signedOut: boolean
+}) {
+  const queryClient = useQueryClient()
+  const tokenHealth = useTokenHealth({ enabled: !signedOut })
+  const [revealed, setRevealed] = useState(false)
+
+  const patForm = useForm<PatSubmit>({
+    resolver: zodResolver(PatSubmitSchema),
+    defaultValues: { pat: '' },
+  })
+
+  const submit = useMutation({
+    mutationFn: submitPat,
+    onSuccess: () => {
+      // onAuthChange(true) clears viewer-derived state in the parent and
+      // un-gates the queries so the refetch can fire. Flips happen
+      // synchronously *before* removeQueries so the form drops the prior
+      // viewer's selections before the refetch round-trips.
+      onAuthChange(true)
+      // removeQueries (not invalidateQueries): clears the cache entirely so
+      // the prior viewer's preserved `data` can't leak across an account
+      // swap during the refetch window. Active observers (useTokenHealth,
+      // usePullRequests) refetch automatically from a clean state.
+      queryClient.removeQueries({ queryKey: ['token-health'] })
+      queryClient.removeQueries({ queryKey: ['prs'] })
+      patForm.reset({ pat: '' })
+      setRevealed(false)
+    },
+    onError: () => {
+      patForm.reset({ pat: '' })
+    },
+  })
+
+  const signOut = useMutation({
+    mutationFn: deletePat,
+    onSuccess: () => {
+      // onAuthChange(false) flips the parent's signedOut flag → queries are
+      // disabled → no wasted /prs + /user round-trip that we already know
+      // will 401. PatErrorPage shows immediately via the signedOut branch
+      // of fatalAuthError.
+      onAuthChange(false)
+      queryClient.removeQueries({ queryKey: ['token-health'] })
+      queryClient.removeQueries({ queryKey: ['prs'] })
+    },
+  })
+
+  // Use isSuccess (not data !== undefined) — TanStack preserves the last
+  // successful `data` after a subsequent refetch error, so checking `data`
+  // would keep showing "Signed in as @old" forever after sign-out.
+  const isSignedIn = tokenHealth.isSuccess
+
+  const handlePatSubmit = patForm.handleSubmit((values) => {
+    submit.mutate(values.pat)
+  })
+
+  const handleCancel = () => {
+    patForm.reset({ pat: '' })
+    setRevealed(false)
+    submit.reset()
+  }
+
+  if (revealed) {
+    return (
+      <section className="space-y-3">
+        <form onSubmit={handlePatSubmit} className="space-y-2">
+          <Input
+            type="password"
+            autoComplete="off"
+            autoFocus
+            placeholder="Paste your GitHub PAT"
+            {...patForm.register('pat')}
+          />
+          {submit.isError && (
+            <p className="text-destructive text-sm">
+              {submit.error instanceof ApiError && submit.error.code === 'BAD_CREDENTIALS'
+                ? 'GitHub rejected this token.'
+                : 'Something went wrong. Please try again.'}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={submit.isPending}>
+              {submit.isPending ? 'Submitting…' : 'Submit'}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </section>
+    )
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2 text-sm">
+        {tokenHealth.isLoading ? (
+          <>
+            <Loader2 className="size-4 shrink-0 animate-spin" />
+            <span className="text-muted-foreground">Checking…</span>
+          </>
+        ) : isSignedIn ? (
+          <>
+            <Check className="size-4 shrink-0 text-green-600" aria-hidden />
+            <span className="min-w-0 truncate">
+              Signed in as{' '}
+              <span className="font-mono">@{tokenHealth.data.login}</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <X className="text-muted-foreground size-4 shrink-0" aria-hidden />
+            <span className="text-muted-foreground">Not set</span>
+          </>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => setRevealed(true)}
+        >
+          Update token
+        </Button>
+        {isSignedIn && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => signOut.mutate()}
+            disabled={signOut.isPending}
+          >
+            Sign out
+          </Button>
+        )}
+      </div>
+    </section>
   )
 }

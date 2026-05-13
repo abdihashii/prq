@@ -6,12 +6,14 @@ import { fetchPullRequests } from '@/queries/pull-requests'
 interface UsePullRequestsArgs {
   pollingMs: PollingMs
   trackedRepos: TrackedRepos
+  enabled?: boolean
 }
 
-export function usePullRequests({ pollingMs, trackedRepos }: UsePullRequestsArgs) {
+export function usePullRequests({ pollingMs, trackedRepos, enabled = true }: UsePullRequestsArgs) {
   return useQuery({
     queryKey: ['prs', trackedRepos],
     queryFn: () => fetchPullRequests(trackedRepos),
     refetchInterval: query => getRefetchInterval(query.state.error, pollingMs),
+    enabled,
   })
 }

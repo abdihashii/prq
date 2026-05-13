@@ -6,16 +6,52 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface RepoPickerProps {
   trackableRepos: TrackableRepo[]
   draftTrackedRepos: TrackedRepos
   onChange: (next: TrackedRepos) => void
+  loading?: boolean
 }
 
 const ROW_HEIGHT = 36
+const SKELETON_ROW_COUNT = 6
 
-export function RepoPicker({ trackableRepos, draftTrackedRepos, onChange }: RepoPickerProps) {
+export function RepoPicker(props: RepoPickerProps) {
+  // Skeleton is its own component so the active picker's hooks don't run
+  // during loading — keeps the rules-of-hooks invariant when `loading`
+  // toggles (unmount vs. re-render).
+  if (props.loading) return <RepoPickerSkeleton />
+  return <RepoPickerActive {...props} />
+}
+
+function RepoPickerSkeleton() {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-9 w-full" />
+      <div className="border-input rounded-md border p-1">
+        {Array.from({ length: SKELETON_ROW_COUNT }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 px-2"
+            style={{ height: ROW_HEIGHT }}
+          >
+            <Skeleton className="size-4 rounded-sm" />
+            <Skeleton className="h-4 flex-1" />
+            <Skeleton className="h-4 w-6" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RepoPickerActive({
+  trackableRepos,
+  draftTrackedRepos,
+  onChange,
+}: RepoPickerProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
   const draft = useMemo(() => new Set(draftTrackedRepos), [draftTrackedRepos])

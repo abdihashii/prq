@@ -1,10 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchTokenHealth } from '@/queries/token-health'
 
-export function useTokenHealth() {
+interface UseTokenHealthArgs {
+  enabled?: boolean
+}
+
+export function useTokenHealth({ enabled = true }: UseTokenHealthArgs = {}) {
   return useQuery({
     queryKey: ['token-health'],
     queryFn: fetchTokenHealth,
     retry: false,
+    enabled,
   })
 }
