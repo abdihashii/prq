@@ -1,6 +1,9 @@
 query GetPullRequests {
   viewer {
     login
+    # Hard-capped at 100 owned repos. If a user owns more, the alphabetically-
+    # later ones won't appear in the settings picker. Personal-dashboard use
+    # case rarely hits this; add pagination if it becomes a real complaint.
     repositories(
       first: 100
       ownerAffiliations: [OWNER]

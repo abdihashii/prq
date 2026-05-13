@@ -9,10 +9,10 @@ export const PollingMsSchema = z.union([
 
 export const TrackedReposSchema = z.array(z.string().regex(/^[^/\s]+\/[^/\s]+$/))
 
-export const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS: { pollingMs: 30_000, trackedRepos: string[] } = {
   pollingMs: 30_000,
-  trackedRepos: [] as string[],
-} as const
+  trackedRepos: [],
+}
 
 export const SettingsSchema = z
   .object({
