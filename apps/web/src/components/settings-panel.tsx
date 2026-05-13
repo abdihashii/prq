@@ -1,6 +1,8 @@
-import type { PollingMs, TrackableRepo, TrackedRepos } from '@prq/shared'
-import { POLLING_OPTIONS } from '@prq/shared'
-import { useEffect, useMemo, useState } from 'react'
+import type { PollingMs, Settings, TrackableRepo, TrackedRepos } from '@prq/shared'
+import { POLLING_OPTIONS, SettingsSchema } from '@prq/shared'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect } from 'react'
+import { Controller, useForm } from 'react-hook-form'
 import { RepoPicker } from '@/components/repo-picker'
 import { Button } from '@/components/ui/button'
 import {
@@ -50,53 +52,53 @@ export function SettingsPanel(props: SettingsPanelProps) {
   } = props
   const isMobile = useIsMobile()
 
-  const [draftPollingMs, setDraftPollingMs] = useState<PollingMs>(pollingMs)
-  const [draftTrackedRepos, setDraftTrackedRepos] = useState<TrackedRepos>(trackedRepos)
+  const form = useForm<Settings>({
+    resolver: zodResolver(SettingsSchema),
+    defaultValues: { pollingMs, trackedRepos },
+  })
 
   // Reset drafts to persisted state whenever the panel is opened, so closing
-  // without Save and reopening doesn't show stale edits. We intentionally do
-  // NOT mirror persisted state into the drafts while the panel is open — that
-  // would silently revert an in-flight edit if external state changed mid-edit.
+  // without Save and reopening doesn't show stale edits. Mirrors the Phase 6B
+  // "discard on close, hydrate on open" semantic; intentionally NOT a generic
+  // mirror of external state — that would silently revert an in-flight edit.
   useEffect(() => {
-    if (open) {
-      setDraftPollingMs(pollingMs)
-      setDraftTrackedRepos(trackedRepos)
-    }
-  }, [open, pollingMs, trackedRepos])
+    if (open) form.reset({ pollingMs, trackedRepos })
+  }, [open, pollingMs, trackedRepos, form])
 
-  const trackedReposChanged = useMemo(() => {
-    if (draftTrackedRepos.length !== trackedRepos.length) return true
-    const persisted = new Set(trackedRepos)
-    return draftTrackedRepos.some(r => !persisted.has(r))
-  }, [draftTrackedRepos, trackedRepos])
-
-  const isDirty = draftPollingMs !== pollingMs || trackedReposChanged
-
-  const handleSave = () => {
-    if (draftPollingMs !== pollingMs) onPollingMsChange(draftPollingMs)
-    if (trackedReposChanged) onTrackedReposChange(draftTrackedRepos)
-  }
+  const handleSave = form.handleSubmit((values) => {
+    onPollingMsChange(values.pollingMs)
+    onTrackedReposChange(values.trackedRepos)
+    // Rebaseline so isDirty flips back to false; the parent prop update
+    // doesn't reset RHF's defaultValues on its own.
+    form.reset(values)
+  })
 
   const body = (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 space-y-6 overflow-y-auto p-4">
         <section className="space-y-2">
           <Label htmlFor="polling-select">Polling cadence</Label>
-          <Select
-            value={String(draftPollingMs)}
-            onValueChange={v => setDraftPollingMs(Number(v) as PollingMs)}
-          >
-            <SelectTrigger id="polling-select" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {POLLING_OPTIONS.map(opt => (
-                <SelectItem key={opt.value} value={String(opt.value)}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name="pollingMs"
+            control={form.control}
+            render={({ field }) => (
+              <Select
+                value={String(field.value)}
+                onValueChange={v => field.onChange(Number(v))}
+              >
+                <SelectTrigger id="polling-select" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {POLLING_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={String(opt.value)}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
         </section>
 
         <Separator />
@@ -108,16 +110,27 @@ export function SettingsPanel(props: SettingsPanelProps) {
               Show only PRs from selected repos. Selecting nothing hides the dashboard.
             </p>
           </div>
-          <RepoPicker
-            trackableRepos={trackableRepos}
-            draftTrackedRepos={draftTrackedRepos}
-            onChange={setDraftTrackedRepos}
+          <Controller
+            name="trackedRepos"
+            control={form.control}
+            render={({ field }) => (
+              <RepoPicker
+                trackableRepos={trackableRepos}
+                draftTrackedRepos={field.value}
+                onChange={field.onChange}
+              />
+            )}
           />
         </section>
       </div>
 
       <div className="border-t p-4">
-        <Button onClick={handleSave} disabled={!isDirty} size="sm" className="w-full sm:w-auto">
+        <Button
+          onClick={handleSave}
+          disabled={!form.formState.isDirty}
+          size="sm"
+          className="w-full sm:w-auto"
+        >
           Save
         </Button>
       </div>
