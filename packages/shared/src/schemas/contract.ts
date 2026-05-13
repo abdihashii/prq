@@ -22,7 +22,12 @@ export const BucketedResponseSchema = z.object({
   trackableRepos: z.array(TrackableRepoSchema),
 })
 
-export const ApiErrorCodeSchema = z.enum(['BAD_CREDENTIALS', 'RATE_LIMITED', 'UPSTREAM_ERROR'])
+export const ApiErrorCodeSchema = z.enum([
+  'BAD_CREDENTIALS',
+  'BAD_REQUEST',
+  'RATE_LIMITED',
+  'UPSTREAM_ERROR',
+])
 
 export const ApiErrorSchema = z.object({
   error: z.object({
