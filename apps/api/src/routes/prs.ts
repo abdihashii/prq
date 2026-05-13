@@ -16,12 +16,20 @@ export const prs = new Hono()
 prs.get('/prs', async (c) => {
   try {
     // @hono/node-server leaves %2F (slash) in query values un-decoded, while
-    // app.request() in tests decodes automatically — call decodeURIComponent
-    // so both paths converge before parsing.
+    // app.request() in tests decodes automatically — normalize via
+    // decodeURIComponent so both paths converge. Fall back to the raw value
+    // when the input contains a malformed `%` escape (decodeURIComponent
+    // throws URIError on those); parseRepoList's regex rejects it anyway,
+    // so the filter degrades to an empty allowSet instead of a 502.
     const reposParam = c.req.query('repos')
-    const allowSet = new Set(
-      parseRepoList(reposParam ? decodeURIComponent(reposParam) : undefined),
-    )
+    let normalized: string | undefined = reposParam
+    try {
+      if (reposParam !== undefined) normalized = decodeURIComponent(reposParam)
+    }
+    catch {
+      normalized = reposParam
+    }
+    const allowSet = new Set(parseRepoList(normalized))
 
     const raw = await fetchPullRequests()
     const validated = RawResponseSchema.parse(raw)

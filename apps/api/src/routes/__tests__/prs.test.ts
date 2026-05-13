@@ -77,6 +77,26 @@ describe('GET /api/prs', () => {
     expect(body.buckets.waiting).toHaveLength(1)
   })
 
+  it('returns 200 with empty buckets when ?repos= contains a malformed % escape', async () => {
+    mockedFetch.mockResolvedValue(rawForRepos([
+      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
+    ]))
+
+    // decodeURIComponent('foo%') throws URIError; the route must not 502.
+    const res = await makeApp().request('/api/prs?repos=foo%25')
+    // Note: the URL-level %25 = literal `%` character. After Hono decodes
+    // once, the route sees `foo%` which decodeURIComponent would throw on.
+    // The try/catch keeps the request alive; allowSet ends up empty.
+    expect(res.status).toBe(200)
+
+    const body = await res.json()
+    expect(body.buckets.waiting).toEqual([])
+    expect(body.buckets.review).toEqual([])
+    expect(body.buckets.attention).toEqual([])
+    expect(body.buckets.ready).toEqual([])
+    expect(body.buckets.drafts).toEqual([])
+  })
+
   it('malformed repos entries are silently dropped (never 400)', async () => {
     mockedFetch.mockResolvedValue(rawForRepos([
       { owner: 'vercel', name: 'next.js', id: 'PR_a' },
