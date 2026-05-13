@@ -2,7 +2,7 @@
 
 import { DEFAULT_SETTINGS } from '@prq/shared'
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useSettings } from '../use-settings'
 
 afterEach(() => {
@@ -75,5 +75,45 @@ describe('useSettings', () => {
     rerender({ viewer: 'work-haji' })
     expect(result.current.pollingMs).toBe(300_000)
     expect(result.current.trackedRepos).toEqual(['c/d'])
+  })
+
+  it('does not write previous viewer\'s in-memory settings under the new viewer\'s key on swap', () => {
+    window.localStorage.setItem(
+      'prq:settings:viewer-a',
+      JSON.stringify({ pollingMs: 60_000, trackedRepos: ['a/repo1'] }),
+    )
+    window.localStorage.setItem(
+      'prq:settings:viewer-b',
+      JSON.stringify({ pollingMs: 300_000, trackedRepos: ['b/repo2'] }),
+    )
+
+    const { result, rerender } = renderHook(
+      ({ viewer }: { viewer: string | null }) => useSettings(viewer),
+      { initialProps: { viewer: 'viewer-a' satisfies string | null } },
+    )
+
+    // Mutate in-memory state for viewer-a so it diverges from any other key.
+    act(() => {
+      result.current.setTrackedRepos(['a/repo1', 'a/repo3'])
+    })
+
+    // Spy AFTER the in-memory mutation lands so we only observe writes
+    // triggered by the swap.
+    const setItemSpy = vi.spyOn(window.localStorage, 'setItem')
+    rerender({ viewer: 'viewer-b' })
+
+    const writesToB = setItemSpy.mock.calls.filter(
+      ([key]) => key === 'prq:settings:viewer-b',
+    )
+    for (const [, value] of writesToB) {
+      const parsed = JSON.parse(value)
+      expect(
+        parsed.trackedRepos,
+        `viewer-b storage written with viewer-a-tainted data: ${value}`,
+      ).not.toContain('a/repo3')
+      expect(parsed.trackedRepos).not.toContain('a/repo1')
+    }
+
+    setItemSpy.mockRestore()
   })
 })
