@@ -1,6 +1,8 @@
 import type { TrackableRepo, TrackedRepos } from '@prq/shared'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -73,6 +75,14 @@ export function RepoPicker({ trackableRepos, trackedRepos, onSave }: RepoPickerP
     onSave(ordered)
   }
 
+  const selectedSlugs = useMemo(
+    () =>
+      allRepos
+        .map(r => `${r.owner}/${r.name}`)
+        .filter(k => draft.has(k)),
+    [allRepos, draft],
+  )
+
   if (allRepos.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -83,6 +93,28 @@ export function RepoPicker({ trackableRepos, trackedRepos, onSave }: RepoPickerP
 
   return (
     <div className="space-y-3">
+      {selectedSlugs.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedSlugs.map(slug => (
+            <Badge
+              key={slug}
+              variant="secondary"
+              asChild
+              className="cursor-pointer gap-1 py-1 hover:bg-secondary/80"
+            >
+              <button
+                type="button"
+                onClick={() => toggle(slug)}
+                aria-label={`Remove ${slug}`}
+              >
+                <span className="max-w-[24ch] truncate">{slug}</span>
+                <X className="size-3 shrink-0" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
       <Input
         placeholder="Search repos..."
         value={searchQuery}
