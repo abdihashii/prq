@@ -28,6 +28,9 @@
   --warning-bg: var(--color-amber-50);
   --warning-fg: var(--color-amber-900);
   --warning-border: oklch(from var(--color-amber-500) l c h / 0.40);
+  --danger-bg: var(--color-rose-50);
+  --danger-fg: var(--color-rose-900);
+  --danger-border: oklch(from var(--color-rose-500) l c h / 0.40);
   --bucket-review: var(--color-violet-500);
   --bucket-attention: var(--color-rose-500);
   --bucket-ready: var(--color-emerald-500);
@@ -76,6 +79,9 @@
   --warning-bg: oklch(from var(--color-amber-950) l c h / 0.40);
   --warning-fg: var(--color-amber-100);
   --warning-border: oklch(from var(--color-amber-500) l c h / 0.40);
+  --danger-bg: oklch(from var(--color-rose-950) l c h / 0.40);
+  --danger-fg: var(--color-rose-100);
+  --danger-border: oklch(from var(--color-rose-500) l c h / 0.40);
   --bucket-review: var(--color-violet-500);
   --bucket-attention: var(--color-rose-500);
   --bucket-ready: var(--color-emerald-500);
@@ -123,6 +129,9 @@
   --color-warning-bg: var(--warning-bg);
   --color-warning-fg: var(--warning-fg);
   --color-warning-border: var(--warning-border);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-border: var(--danger-border);
   --color-bucket-review: var(--bucket-review);
   --color-bucket-attention: var(--bucket-attention);
   --color-bucket-ready: var(--bucket-ready);

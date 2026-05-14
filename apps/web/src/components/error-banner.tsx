@@ -50,7 +50,7 @@ function isNetworkLikeError(error: unknown): boolean {
 const KIND_STYLES = {
   warning: 'border-warning-border bg-warning-bg text-warning-fg',
   info: 'border-border bg-muted/40 text-foreground',
-  error: 'border-destructive/40 bg-destructive/10 text-destructive',
+  error: 'border-danger-border bg-danger-bg text-danger-fg',
 } as const
 
 interface BannerProps {
