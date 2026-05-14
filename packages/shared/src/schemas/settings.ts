@@ -9,6 +9,8 @@ export const PollingMsSchema = z.union([
 
 export const TrackedReposSchema = z.array(z.string().regex(/^[^/\s]+\/[^/\s]+$/))
 
+export const ThemeSchema = z.enum(['light', 'dark'])
+
 export const DEFAULT_SETTINGS: { pollingMs: 30_000, trackedRepos: string[] } = {
   pollingMs: 30_000,
   trackedRepos: [],

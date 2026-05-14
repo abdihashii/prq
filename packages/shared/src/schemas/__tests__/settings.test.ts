@@ -4,6 +4,7 @@ import {
   POLLING_OPTIONS,
   PollingMsSchema,
   SettingsSchema,
+  ThemeSchema,
   TrackedReposSchema,
 } from '../settings'
 
@@ -38,6 +39,16 @@ describe('TrackedReposSchema', () => {
     [''],
   ])('rejects %j', (bad) => {
     expect(() => TrackedReposSchema.parse([bad])).toThrow()
+  })
+})
+
+describe('ThemeSchema', () => {
+  it.each(['light', 'dark'] as const)('accepts %j', (theme) => {
+    expect(ThemeSchema.parse(theme)).toBe(theme)
+  })
+
+  it.each(['system', '', 'Light', 'DARK', null, undefined, 0, 1])('rejects %j', (bad) => {
+    expect(() => ThemeSchema.parse(bad)).toThrow()
   })
 })
 

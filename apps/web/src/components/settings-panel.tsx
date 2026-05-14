@@ -1,4 +1,4 @@
-import type { PatSubmit, PollingMs, Settings, TrackableRepo, TrackedRepos } from '@prq/shared'
+import type { PatSubmit, PollingMs, Settings, Theme, TrackableRepo, TrackedRepos } from '@prq/shared'
 import { PatSubmitSchema, POLLING_OPTIONS, SettingsSchema } from '@prq/shared'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -6,6 +6,7 @@ import { Check, Loader2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { RepoPicker } from '@/components/repo-picker'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import {
   Drawer,
@@ -43,8 +44,10 @@ interface SettingsPanelProps {
   trackedRepos: TrackedRepos
   trackableRepos: TrackableRepo[]
   trackableReposLoading: boolean
+  resolvedTheme: Theme
   onPollingMsChange: (ms: PollingMs) => void
   onTrackedReposChange: (repos: TrackedRepos) => void
+  onThemeChange: (theme: Theme) => void
   onAuthChange: (signedIn: boolean) => void
   signedOut: boolean
 }
@@ -57,8 +60,10 @@ export function SettingsPanel(props: SettingsPanelProps) {
     trackedRepos,
     trackableRepos,
     trackableReposLoading,
+    resolvedTheme,
     onPollingMsChange,
     onTrackedReposChange,
+    onThemeChange,
     onAuthChange,
     signedOut,
   } = props
@@ -89,6 +94,13 @@ export function SettingsPanel(props: SettingsPanelProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 space-y-6 overflow-y-auto p-4">
         <PatSection onAuthChange={onAuthChange} signedOut={signedOut} />
+
+        <Separator />
+
+        <section className="flex items-center justify-between">
+          <Label>Theme</Label>
+          <ThemeToggle resolvedTheme={resolvedTheme} onChange={onThemeChange} />
+        </section>
 
         <Separator />
 
