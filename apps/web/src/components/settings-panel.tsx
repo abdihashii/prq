@@ -300,7 +300,7 @@ function PatSection({
           </>
         ) : isSignedIn ? (
           <>
-            <Check className="size-4 shrink-0 text-green-600" aria-hidden />
+            <Check className="size-4 shrink-0 text-success" aria-hidden />
             <span className="min-w-0 truncate">
               Signed in as{' '}
               <span className="font-mono">@{tokenHealth.data.login}</span>

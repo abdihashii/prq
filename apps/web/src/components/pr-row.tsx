@@ -13,9 +13,9 @@ import {
 import { cn } from '@/lib/utils'
 
 const CI_ICON: Record<CiStatusKind, { Icon: LucideIcon, className: string }> = {
-  success: { Icon: Check, className: 'text-emerald-500' },
-  pending: { Icon: Clock, className: 'text-amber-500' },
-  failure: { Icon: X, className: 'text-rose-500' },
+  success: { Icon: Check, className: 'text-success' },
+  pending: { Icon: Clock, className: 'text-warning' },
+  failure: { Icon: X, className: 'text-danger' },
 }
 
 const BADGE_VARIANT: Record<ReviewBadgeLabel, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -65,7 +65,7 @@ export function PrRow({ pr, bucket }: PrRowProps) {
           </span>
         )}
         {pr.unresolvedThreadCount > 0 && (
-          <span className="text-amber-600">
+          <span className="text-warning">
             {formatNumber(pr.unresolvedThreadCount)} unresolved
           </span>
         )}

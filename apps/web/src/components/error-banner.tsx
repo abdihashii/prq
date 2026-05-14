@@ -48,8 +48,7 @@ function isNetworkLikeError(error: unknown): boolean {
 }
 
 const KIND_STYLES = {
-  warning:
-    'border-amber-500/40 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100',
+  warning: 'border-warning-border bg-warning-bg text-warning-fg',
   info: 'border-border bg-muted/40 text-foreground',
   error: 'border-destructive/40 bg-destructive/10 text-destructive',
 } as const
