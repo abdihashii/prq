@@ -25,7 +25,7 @@ function Home() {
   const [signedOut, setSignedOut] = useState(false)
 
   const { pollingMs, trackedRepos, setPollingMs, setTrackedRepos } = useSettings(viewerLogin)
-  useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const query = usePullRequests({ pollingMs, trackedRepos, enabled: !signedOut })
 
   useEffect(() => {
@@ -82,8 +82,10 @@ function Home() {
         trackedRepos={trackedRepos}
         trackableRepos={trackableRepos}
         trackableReposLoading={trackableReposLoading}
+        resolvedTheme={resolvedTheme}
         onPollingMsChange={setPollingMs}
         onTrackedReposChange={setTrackedRepos}
+        onThemeChange={setTheme}
         onAuthChange={handleAuthChange}
         signedOut={signedOut}
       />
