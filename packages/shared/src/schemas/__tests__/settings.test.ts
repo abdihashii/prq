@@ -4,6 +4,7 @@ import {
   POLLING_OPTIONS,
   PollingMsSchema,
   SettingsSchema,
+  ThemeSchema,
   TrackedReposSchema,
 } from '../settings'
 
@@ -41,9 +42,34 @@ describe('TrackedReposSchema', () => {
   })
 })
 
+describe('ThemeSchema', () => {
+  it.each(['light', 'dark'] as const)('accepts %j', (theme) => {
+    expect(ThemeSchema.parse(theme)).toBe(theme)
+  })
+
+  it.each(['system', '', 'Light', 'DARK', null, undefined, 0, 1])('rejects %j', (bad) => {
+    expect(() => ThemeSchema.parse(bad)).toThrow()
+  })
+})
+
 describe('SettingsSchema', () => {
   it('parses valid settings round-trip', () => {
     const valid = { pollingMs: 60_000, trackedRepos: ['foo/bar'] }
+    expect(SettingsSchema.parse(valid)).toEqual(valid)
+  })
+
+  it('parses with theme: light', () => {
+    const valid = { pollingMs: 30_000, trackedRepos: [], theme: 'light' as const }
+    expect(SettingsSchema.parse(valid)).toEqual(valid)
+  })
+
+  it('parses with theme: dark', () => {
+    const valid = { pollingMs: 30_000, trackedRepos: [], theme: 'dark' as const }
+    expect(SettingsSchema.parse(valid)).toEqual(valid)
+  })
+
+  it('parses with theme omitted (round-trips without theme)', () => {
+    const valid = { pollingMs: 30_000, trackedRepos: [] }
     expect(SettingsSchema.parse(valid)).toEqual(valid)
   })
 
@@ -58,6 +84,12 @@ describe('SettingsSchema', () => {
   it('falls back to DEFAULT_SETTINGS on invalid trackedRepos entry', () => {
     expect(
       SettingsSchema.parse({ pollingMs: 30_000, trackedRepos: ['no-slash'] }),
+    ).toEqual(DEFAULT_SETTINGS)
+  })
+
+  it('falls back to DEFAULT_SETTINGS on invalid theme', () => {
+    expect(
+      SettingsSchema.parse({ pollingMs: 30_000, trackedRepos: [], theme: 'system' }),
     ).toEqual(DEFAULT_SETTINGS)
   })
 

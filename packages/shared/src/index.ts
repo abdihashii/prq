@@ -12,6 +12,7 @@ export {
   POLLING_OPTIONS,
   PollingMsSchema,
   SettingsSchema,
+  ThemeSchema,
   TrackedReposSchema,
 } from './schemas/settings'
 export { PatSubmitSchema, TokenHealthResponseSchema } from './schemas/pat'
@@ -20,7 +21,7 @@ export type { Bucket } from './types/bucket'
 export type { PullRequest, RequestedReviewer } from './types/pullRequest'
 export type { ApiErrorCode, ApiErrorPayload, BucketedResponse, RateLimit } from './types/contract'
 export type { TrackableRepo } from './types/trackableRepo'
-export type { PollingMs, Settings, TrackedRepos } from './types/settings'
+export type { PollingMs, Settings, Theme, TrackedRepos } from './types/settings'
 export type { PatSubmit, TokenHealthResponse } from './types/pat'
 
 export { assignBucket } from './lib/bucket'
