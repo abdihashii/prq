@@ -18,9 +18,13 @@ export const Route = createFileRoute('/')({ component: Home })
 function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [viewerLogin, setViewerLogin] = useState<string | null>(null)
+  // Explicit signed-out state — gates query fetching so we don't burn a
+  // round-trip on /prs and /user when we already know the answer (either
+  // we just deleted the cookie, or a previous fetch already returned 401).
+  const [signedOut, setSignedOut] = useState(false)
 
   const { pollingMs, trackedRepos, setPollingMs, setTrackedRepos } = useSettings(viewerLogin)
-  const query = usePullRequests({ pollingMs, trackedRepos })
+  const query = usePullRequests({ pollingMs, trackedRepos, enabled: !signedOut })
 
   useEffect(() => {
     const next = query.data?.viewerLogin ?? null
@@ -28,14 +32,35 @@ function Home() {
   }, [query.data?.viewerLogin, viewerLogin])
 
   const fatalAuthError =
-    query.error instanceof ApiError && query.error.code === 'BAD_CREDENTIALS'
+    signedOut
+    || (query.error instanceof ApiError && query.error.code === 'BAD_CREDENTIALS')
+
+  // Latch signedOut on the first BAD_CREDENTIALS so polling stops — otherwise
+  // refetchInterval would keep re-firing /prs against a known-bad cookie.
+  useEffect(() => {
+    if (query.error instanceof ApiError && query.error.code === 'BAD_CREDENTIALS') {
+      setSignedOut(true)
+    }
+  }, [query.error])
+
   const badgeCount = fatalAuthError
     ? 0
     : (query.data?.buckets.review.length ?? 0) +
       (query.data?.buckets.attention.length ?? 0)
   useNotificationBadge(badgeCount)
 
-  const trackableRepos = query.data?.trackableRepos ?? []
+  // Gate auth-derived data at render time so a transient query.data preserved
+  // from a prior session can't surface in the settings picker after sign-out.
+  const trackableRepos = fatalAuthError ? [] : (query.data?.trackableRepos ?? [])
+  // Loading = no data yet AND not in a definitive signed-out state. Covers
+  // the initial fetch, post-sign-in (cache cleared), and post-account-swap.
+  // Background refetches stay silent — query.data persists, isPending=false.
+  const trackableReposLoading = query.isPending && !fatalAuthError && !signedOut
+
+  const handleAuthChange = (nowSignedIn: boolean) => {
+    setViewerLogin(null)
+    setSignedOut(!nowSignedIn)
+  }
   // Gate on viewerLogin so the empty state can't render in the brief window
   // between query resolution and useSettings hydrating from localStorage —
   // otherwise returning users see an onboarding flash before their persisted
@@ -54,8 +79,11 @@ function Home() {
         pollingMs={pollingMs}
         trackedRepos={trackedRepos}
         trackableRepos={trackableRepos}
+        trackableReposLoading={trackableReposLoading}
         onPollingMsChange={setPollingMs}
         onTrackedReposChange={setTrackedRepos}
+        onAuthChange={handleAuthChange}
+        signedOut={signedOut}
       />
       {fatalAuthError ? (
         <PatErrorPage onOpenSettings={() => setSettingsOpen(true)} />
