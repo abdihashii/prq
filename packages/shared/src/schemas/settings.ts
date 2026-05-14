@@ -20,7 +20,6 @@ export const SettingsSchema = z
   .object({
     pollingMs: PollingMsSchema,
     trackedRepos: TrackedReposSchema,
-    theme: ThemeSchema.optional(),
   })
   .catch(() => DEFAULT_SETTINGS)
 

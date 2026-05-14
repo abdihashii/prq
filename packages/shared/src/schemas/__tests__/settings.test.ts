@@ -58,21 +58,6 @@ describe('SettingsSchema', () => {
     expect(SettingsSchema.parse(valid)).toEqual(valid)
   })
 
-  it('parses with theme: light', () => {
-    const valid = { pollingMs: 30_000, trackedRepos: [], theme: 'light' as const }
-    expect(SettingsSchema.parse(valid)).toEqual(valid)
-  })
-
-  it('parses with theme: dark', () => {
-    const valid = { pollingMs: 30_000, trackedRepos: [], theme: 'dark' as const }
-    expect(SettingsSchema.parse(valid)).toEqual(valid)
-  })
-
-  it('parses with theme omitted (round-trips without theme)', () => {
-    const valid = { pollingMs: 30_000, trackedRepos: [] }
-    expect(SettingsSchema.parse(valid)).toEqual(valid)
-  })
-
   it('falls back to DEFAULT_SETTINGS on empty object', () => {
     expect(SettingsSchema.parse({})).toEqual(DEFAULT_SETTINGS)
   })
@@ -84,12 +69,6 @@ describe('SettingsSchema', () => {
   it('falls back to DEFAULT_SETTINGS on invalid trackedRepos entry', () => {
     expect(
       SettingsSchema.parse({ pollingMs: 30_000, trackedRepos: ['no-slash'] }),
-    ).toEqual(DEFAULT_SETTINGS)
-  })
-
-  it('falls back to DEFAULT_SETTINGS on invalid theme', () => {
-    expect(
-      SettingsSchema.parse({ pollingMs: 30_000, trackedRepos: [], theme: 'system' }),
     ).toEqual(DEFAULT_SETTINGS)
   })
 
