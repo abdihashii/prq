@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { useNotificationBadge } from '@/hooks/use-notification-badge'
 import { usePullRequests } from '@/hooks/use-pull-requests'
 import { useSettings } from '@/hooks/use-settings'
+import { useTheme } from '@/hooks/use-theme'
 import { ApiError } from '@/lib/api-error'
 
 export const Route = createFileRoute('/')({ component: Home })
@@ -24,6 +25,7 @@ function Home() {
   const [signedOut, setSignedOut] = useState(false)
 
   const { pollingMs, trackedRepos, setPollingMs, setTrackedRepos } = useSettings(viewerLogin)
+  useTheme()
   const query = usePullRequests({ pollingMs, trackedRepos, enabled: !signedOut })
 
   useEffect(() => {
