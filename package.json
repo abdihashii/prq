@@ -8,8 +8,9 @@
   },
   "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "dev": "pnpm -r --parallel run dev",
-    "build": "pnpm -r run build",
+    "dev:api": "pnpm --filter @prq/api dev",
+    "dev:web": "pnpm --filter @prq/web dev",
+    "build": "pnpm --filter @prq/api build && pnpm --filter @prq/web build",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "typecheck": "pnpm -r run typecheck",
