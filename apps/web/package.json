@@ -8,7 +8,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint"
+    "lint": "eslint",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@hookform/resolvers": "catalog:",
@@ -37,6 +39,8 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@storybook/addon-themes": "^10.4.0",
+    "@storybook/react-vite": "^10.4.0",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/eslint-config": "latest",
     "@testing-library/dom": "^10.4.1",
@@ -47,6 +51,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.0.0",
     "jsdom": "^28.1.0",
+    "storybook": "^10.4.0",
     "typescript": "catalog:",
     "vite": "^8.0.0",
     "vitest": "catalog:"
