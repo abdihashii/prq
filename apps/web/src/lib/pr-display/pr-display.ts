@@ -32,6 +32,8 @@ export function getReviewBadgeLabel(pr: PullRequest): ReviewBadgeLabel {
   }
 }
 
+export type SuffixPart = { kind: 'mono' | 'text', value: string }
+
 export function getContextualHint(pr: PullRequest): SuffixPart[] | null {
   if (pr.mergeable === 'CONFLICTING') return [{ kind: 'text', value: 'merge conflict' }]
   if (pr.needsRereview) return [{ kind: 'text', value: 're-review (new commits since you reviewed)' }]
@@ -55,8 +57,6 @@ export function formatHandleList(handles: string[], max = 2): string {
 export function formatRequestedReviewers(reviewers: RequestedReviewer[], max = 2): string {
   return formatHandleList(reviewers.map((r) => r.handle), max)
 }
-
-export type SuffixPart = { kind: 'mono' | 'text', value: string }
 
 export function getBucketMetaSuffix(pr: PullRequest, bucket: Bucket): SuffixPart[] | null {
   if (bucket === 'waiting') {
