@@ -32,12 +32,15 @@ export function getReviewBadgeLabel(pr: PullRequest): ReviewBadgeLabel {
   }
 }
 
-export function getContextualHint(pr: PullRequest): string | null {
-  if (pr.mergeable === 'CONFLICTING') return 'merge conflict'
-  if (pr.needsRereview) return 're-review (new commits since you reviewed)'
+export function getContextualHint(pr: PullRequest): SuffixPart[] | null {
+  if (pr.mergeable === 'CONFLICTING') return [{ kind: 'text', value: 'merge conflict' }]
+  if (pr.needsRereview) return [{ kind: 'text', value: 're-review (new commits since you reviewed)' }]
   if (pr.newCommentsSincePush > 0) {
     const n = pr.newCommentsSincePush
-    return `${n} new comment${n === 1 ? '' : 's'} since your last push`
+    return [
+      { kind: 'mono', value: formatNumber(n) },
+      { kind: 'text', value: ` new comment${n === 1 ? '' : 's'} since your last push` },
+    ]
   }
   return null
 }
@@ -53,21 +56,31 @@ export function formatRequestedReviewers(reviewers: RequestedReviewer[], max = 2
   return formatHandleList(reviewers.map((r) => r.handle), max)
 }
 
-export function getBucketMetaSuffix(pr: PullRequest, bucket: Bucket): string | null {
+export type SuffixPart = { kind: 'mono' | 'text', value: string }
+
+export function getBucketMetaSuffix(pr: PullRequest, bucket: Bucket): SuffixPart[] | null {
   if (bucket === 'waiting') {
     if (pr.requestedReviewers.length === 0) return null
-    return `requested: ${formatRequestedReviewers(pr.requestedReviewers)}`
+    return [{ kind: 'text', value: `requested: ${formatRequestedReviewers(pr.requestedReviewers)}` }]
   }
   if (bucket === 'drafts') {
     const n = pr.commitsTotalCount
-    return `${formatNumber(n)} commit${n === 1 ? '' : 's'}`
+    return [
+      { kind: 'mono', value: formatNumber(n) },
+      { kind: 'text', value: ` commit${n === 1 ? '' : 's'}` },
+    ]
   }
   if (bucket === 'attention') {
     const n = pr.unresolvedThreadCount
     if (n === 0) return null
-    const base = `${formatNumber(n)} unresolved comment${n === 1 ? '' : 's'}`
-    if (pr.unresolvedThreadAuthors.length === 0) return base
-    return `${base} from ${formatHandleList(pr.unresolvedThreadAuthors)}`
+    const parts: SuffixPart[] = [
+      { kind: 'mono', value: formatNumber(n) },
+      { kind: 'text', value: ` unresolved comment${n === 1 ? '' : 's'}` },
+    ]
+    if (pr.unresolvedThreadAuthors.length > 0) {
+      parts.push({ kind: 'text', value: ` from ${formatHandleList(pr.unresolvedThreadAuthors)}` })
+    }
+    return parts
   }
   return null
 }

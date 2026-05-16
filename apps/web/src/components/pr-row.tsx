@@ -1,9 +1,10 @@
 import type { Bucket, PullRequest } from '@prq/shared'
 import type { LucideIcon } from 'lucide-react'
 import { Check, Clock, MessageSquare, X } from 'lucide-react'
+import { Fragment } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { formatNumber, formatRelativeTime } from '@/lib/format/format'
-import type { CiStatusKind, ReviewBadgeLabel } from '@/lib/pr-display/pr-display'
+import type { CiStatusKind, ReviewBadgeLabel, SuffixPart } from '@/lib/pr-display/pr-display'
 import {
   getBucketMetaSuffix,
   getCiStatusKind,
@@ -25,6 +26,14 @@ const BADGE_VARIANT: Record<ReviewBadgeLabel, 'default' | 'secondary' | 'destruc
   'Review pending': 'outline',
 }
 
+function renderSuffixParts(parts: SuffixPart[]) {
+  return parts.map((p, i) =>
+    p.kind === 'mono'
+      ? <span key={i} className="font-mono">{p.value}</span>
+      : <Fragment key={i}>{p.value}</Fragment>,
+  )
+}
+
 interface PrRowProps {
   pr: PullRequest
   bucket: Bucket
@@ -37,13 +46,9 @@ export function PrRow({ pr, bucket }: PrRowProps) {
   const hint = getContextualHint(pr)
   const bucketSuffix = getBucketMetaSuffix(pr, bucket)
   const updated = formatRelativeTime(pr.updatedAt)
-  const metaParts = [
-    bucket === 'review'
-      ? `by @${pr.author?.login ?? 'ghost'}`
-      : `base: ${pr.baseRefName}`,
-    bucketSuffix,
-    hint,
-  ].filter((s): s is string => s !== null)
+  const authorOrBase = bucket === 'review'
+    ? `by @${pr.author?.login ?? 'ghost'}`
+    : `base: ${pr.baseRefName}`
 
   return (
     <a
@@ -76,7 +81,9 @@ export function PrRow({ pr, bucket }: PrRowProps) {
       </div>
       <div className="mt-1 font-medium">{pr.title}</div>
       <div className="mt-1 text-sm text-muted-foreground">
-        {metaParts.join(' · ')}
+        {authorOrBase}
+        {bucketSuffix && <>{' · '}{renderSuffixParts(bucketSuffix)}</>}
+        {hint && <>{' · '}{renderSuffixParts(hint)}</>}
       </div>
     </a>
   )
