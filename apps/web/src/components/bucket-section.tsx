@@ -24,7 +24,7 @@ export function BucketSection({ bucket, prs }: BucketSectionProps) {
         <span className={cn('font-semibold', isEmpty && 'text-muted-foreground font-medium')}>
           {label}
         </span>
-        <span className="text-foreground-secondary tabular-nums">({formatNumber(prs.length)})</span>
+        <span className="font-mono text-foreground-secondary tabular-nums">({formatNumber(prs.length)})</span>
         <Tooltip>
           <TooltipTrigger
             aria-label={`About ${label}`}

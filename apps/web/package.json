@@ -13,6 +13,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "catalog:",
     "@hookform/resolvers": "catalog:",
     "@prq/shared": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",

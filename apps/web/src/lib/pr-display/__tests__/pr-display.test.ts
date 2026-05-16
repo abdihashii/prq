@@ -70,32 +70,38 @@ describe('getContextualHint', () => {
   })
 
   it('returns merge conflict when mergeable is CONFLICTING', () => {
-    expect(getContextualHint(make({ mergeable: 'CONFLICTING' }) as PullRequest)).toBe('merge conflict')
+    expect(getContextualHint(make({ mergeable: 'CONFLICTING' }) as PullRequest)).toEqual([
+      { kind: 'text', value: 'merge conflict' },
+    ])
   })
 
   it('returns re-review hint when needsRereview is true', () => {
-    expect(getContextualHint(make({ needsRereview: true }) as PullRequest)).toBe(
-      're-review (new commits since you reviewed)',
-    )
+    expect(getContextualHint(make({ needsRereview: true }) as PullRequest)).toEqual([
+      { kind: 'text', value: 're-review (new commits since you reviewed)' },
+    ])
   })
 
   it('returns new comments hint with correct pluralization', () => {
-    expect(getContextualHint(make({ newCommentsSincePush: 1 }) as PullRequest)).toBe(
-      '1 new comment since your last push',
-    )
-    expect(getContextualHint(make({ newCommentsSincePush: 3 }) as PullRequest)).toBe(
-      '3 new comments since your last push',
-    )
+    expect(getContextualHint(make({ newCommentsSincePush: 1 }) as PullRequest)).toEqual([
+      { kind: 'mono', value: '1' },
+      { kind: 'text', value: ' new comment since your last push' },
+    ])
+    expect(getContextualHint(make({ newCommentsSincePush: 3 }) as PullRequest)).toEqual([
+      { kind: 'mono', value: '3' },
+      { kind: 'text', value: ' new comments since your last push' },
+    ])
   })
 
   it('conflict beats re-review', () => {
     const pr = make({ mergeable: 'CONFLICTING', needsRereview: true }) as PullRequest
-    expect(getContextualHint(pr)).toBe('merge conflict')
+    expect(getContextualHint(pr)).toEqual([{ kind: 'text', value: 'merge conflict' }])
   })
 
   it('re-review beats new comments', () => {
     const pr = make({ needsRereview: true, newCommentsSincePush: 5 }) as PullRequest
-    expect(getContextualHint(pr)).toBe('re-review (new commits since you reviewed)')
+    expect(getContextualHint(pr)).toEqual([
+      { kind: 'text', value: 're-review (new commits since you reviewed)' },
+    ])
   })
 })
 
@@ -170,14 +176,22 @@ describe('getBucketMetaSuffix', () => {
         { kind: 'User' as const, handle: 'grace' },
       ],
     } as unknown as PullRequest
-    expect(getBucketMetaSuffix(pr, 'waiting')).toBe('requested: @ada, @grace')
+    expect(getBucketMetaSuffix(pr, 'waiting')).toEqual([
+      { kind: 'text', value: 'requested: @ada, @grace' },
+    ])
   })
 
   it('formats commit count for drafts (singular and plural)', () => {
     const single = { ...make(), ...baseExtras, commitsTotalCount: 1 } as unknown as PullRequest
     const many = { ...make(), ...baseExtras, commitsTotalCount: 4 } as unknown as PullRequest
-    expect(getBucketMetaSuffix(single, 'drafts')).toBe('1 commit')
-    expect(getBucketMetaSuffix(many, 'drafts')).toBe('4 commits')
+    expect(getBucketMetaSuffix(single, 'drafts')).toEqual([
+      { kind: 'mono', value: '1' },
+      { kind: 'text', value: ' commit' },
+    ])
+    expect(getBucketMetaSuffix(many, 'drafts')).toEqual([
+      { kind: 'mono', value: '4' },
+      { kind: 'text', value: ' commits' },
+    ])
   })
 
   it('returns null for attention when no unresolved threads', () => {
@@ -192,9 +206,11 @@ describe('getBucketMetaSuffix', () => {
       unresolvedThreadCount: 3,
       unresolvedThreadAuthors: ['reviewer1', 'reviewer2'],
     } as unknown as PullRequest
-    expect(getBucketMetaSuffix(pr, 'attention')).toBe(
-      '3 unresolved comments from @reviewer1, @reviewer2',
-    )
+    expect(getBucketMetaSuffix(pr, 'attention')).toEqual([
+      { kind: 'mono', value: '3' },
+      { kind: 'text', value: ' unresolved comments' },
+      { kind: 'text', value: ' from @reviewer1, @reviewer2' },
+    ])
   })
 
   it('formats unresolved without authors when list is empty', () => {
@@ -204,6 +220,9 @@ describe('getBucketMetaSuffix', () => {
       unresolvedThreadCount: 1,
       unresolvedThreadAuthors: [],
     } as unknown as PullRequest
-    expect(getBucketMetaSuffix(pr, 'attention')).toBe('1 unresolved comment')
+    expect(getBucketMetaSuffix(pr, 'attention')).toEqual([
+      { kind: 'mono', value: '1' },
+      { kind: 'text', value: ' unresolved comment' },
+    ])
   })
 })
