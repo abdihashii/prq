@@ -3,6 +3,7 @@ packages:
   - 'packages/*'
 
 catalog:
+  '@fontsource/jetbrains-mono': ^5
   '@hookform/resolvers': ^5
   date-fns: ^4.1.0
   react-hook-form: ^7
