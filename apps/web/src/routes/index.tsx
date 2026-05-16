@@ -94,7 +94,9 @@ function Home() {
       ) : (
         <main className="mx-auto max-w-3xl p-6">
           <header className="mb-4 flex items-center justify-between">
-            <h1 className="font-mono text-2xl font-semibold">prq</h1>
+            <h1 className="font-mono text-3xl font-semibold tracking-tight">
+              pr<span className="underline decoration-[3px] underline-offset-[6px]">q</span>
+            </h1>
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
