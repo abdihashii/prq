@@ -43,9 +43,7 @@ export const DashboardWithPageChrome: Story = {
   render: () => (
     <main className="mx-auto max-w-3xl p-6">
       <header className="mb-4 flex items-center justify-between">
-        <h1 className="font-mono text-3xl font-semibold tracking-tight">
-          pr<span className="underline decoration-[3px] underline-offset-[6px]">q</span>
-        </h1>
+        <h1 className="font-mono text-3xl font-semibold tracking-tight">prq</h1>
         <LastSynced dataUpdatedAt={Date.now() - 30_000} isFetching={false} />
       </header>
       <Dashboard data={BUCKETED_RESPONSE_POPULATED} />
@@ -58,9 +56,7 @@ export const SkeletonWithPageChrome: Story = {
   render: () => (
     <main className="mx-auto max-w-3xl p-6">
       <header className="mb-4 flex items-center justify-between">
-        <h1 className="font-mono text-3xl font-semibold tracking-tight">
-          pr<span className="underline decoration-[3px] underline-offset-[6px]">q</span>
-        </h1>
+        <h1 className="font-mono text-3xl font-semibold tracking-tight">prq</h1>
         <LastSynced dataUpdatedAt={0} isFetching />
       </header>
       <DashboardSkeleton />
