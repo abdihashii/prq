@@ -61,15 +61,15 @@ export function PrRow({ pr, bucket }: PrRowProps) {
         {pr.commentsTotalCount > 0 && (
           <span className="flex items-center gap-1 text-muted-foreground">
             <MessageSquare className="size-3" />
-            {formatNumber(pr.commentsTotalCount)}
+            <span className="font-mono">{formatNumber(pr.commentsTotalCount)}</span>
           </span>
         )}
         {pr.unresolvedThreadCount > 0 && (
           <span className="text-warning">
-            {formatNumber(pr.unresolvedThreadCount)} unresolved
+            <span className="font-mono">{formatNumber(pr.unresolvedThreadCount)}</span> unresolved
           </span>
         )}
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+        <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
           <span className="inline-block min-w-[2ch] text-right">{updated.digits}</span>
           {updated.unit}
         </span>
