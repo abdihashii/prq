@@ -28,7 +28,7 @@ export function BucketSection({ bucket, prs }: BucketSectionProps) {
         <Tooltip>
           <TooltipTrigger
             aria-label={`About ${label}`}
-            className="ml-1 text-muted-foreground transition-colors hover:text-foreground"
+            className="ml-1 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <Info className="size-3.5" />
           </TooltipTrigger>

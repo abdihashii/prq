@@ -50,7 +50,7 @@ export function PrRow({ pr, bucket }: PrRowProps) {
       href={pr.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block rounded-md px-3 py-2 transition-colors hover:bg-accent"
+      className="block rounded-md px-3 py-2 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <div className="flex items-center gap-2 text-sm">
         {ci && <ci.Icon className={cn('size-4 shrink-0', ci.className)} />}
