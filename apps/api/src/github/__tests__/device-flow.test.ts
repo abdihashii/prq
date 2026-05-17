@@ -50,7 +50,7 @@ describe('startDeviceCode', () => {
     await startDeviceCode('client-xyz')
     const body = JSON.parse(captured?.body as string)
     expect(body.client_id).toBe('client-xyz')
-    expect(body.scope).toBe('repo read:user')
+    expect(body.scope).toBe('repo read:user read:org')
   })
 
   it('non-200 → throws with status', async () => {
