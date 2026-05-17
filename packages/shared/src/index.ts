@@ -15,14 +15,24 @@ export {
   ThemeSchema,
   TrackedReposSchema,
 } from './schemas/settings'
-export { PatSubmitSchema, TokenHealthResponseSchema } from './schemas/pat'
+export {
+  DeviceFlowPollRequestSchema,
+  DeviceFlowPollResponseSchema,
+  DeviceFlowStartResponseSchema,
+  TokenHealthResponseSchema,
+} from './schemas/auth'
 
 export type { Bucket } from './types/bucket'
 export type { PullRequest, RequestedReviewer } from './types/pullRequest'
 export type { ApiErrorCode, ApiErrorPayload, BucketedResponse, RateLimit } from './types/contract'
 export type { TrackableRepo } from './types/trackableRepo'
 export type { PollingMs, Settings, Theme, TrackedRepos } from './types/settings'
-export type { PatSubmit, TokenHealthResponse } from './types/pat'
+export type {
+  DeviceFlowPollRequest,
+  DeviceFlowPollResponse,
+  DeviceFlowStartResponse,
+  TokenHealthResponse,
+} from './types/auth'
 
 export { assignBucket } from './lib/bucket'
 export { mergeTrackableRepos, parseRepoList } from './lib/repo'

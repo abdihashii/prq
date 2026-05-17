@@ -155,9 +155,11 @@ Derived fields (computed locally from the above):
 
 ## 6. GitHub API
 
-**Auth:** Fine-grained Personal Access Token, stored locally (env var or config file). Required permissions: **Pull requests: Read** and **Metadata: Read** (metadata is mandatory and auto-selected by GitHub when any other repo permission is granted).
+**Auth:** OAuth App Device Flow. The user clicks "Sign in with GitHub" → api calls `https://github.com/login/device/code` with the app's `client_id` + scopes (`repo read:user read:org`; `read:org` is required for the `Team.slug` field surfaced in PR review requests) → user enters the displayed code on github.com/login/device and approves. The api then exchanges the device code for an access token and stores it as an HttpOnly + SameSite=Strict cookie (`prq_access_token`, path `/api`). The `client_id` is read from `PRQ_GITHUB_CLIENT_ID` (apps/api/.env); the api fails fast on startup if it's missing. New OAuth Apps issue long-lived tokens (GitHub retired the per-app "Expire user authorization tokens" toggle), so there is no refresh-token rotation; the cookie just outlives a normal session and is revocable from https://github.com/settings/applications.
 
-**Portability:** Per-machine install, per-machine token. The same codebase runs anywhere; the PAT determines whose PRs show up. Drop a work-account PAT on the work laptop, a personal-account PAT on the personal laptop, and each instance shows the right set of PRs without any code or config changes beyond the token itself. The `@me` in all search queries resolves to whoever owns the token.
+**Why OAuth over a PAT:** SAML SSO consent happens once at sign-in instead of per-PAT-per-org, OAuth Apps get org-admin-approved once for all repos (vs. per-repo for fine-grained PATs), and revocation/audit live in the same GitHub UI as every other authorized app. The token's posture is otherwise equivalent: a long-lived bearer stored locally.
+
+**Portability:** Per-machine install. The same codebase runs anywhere; whoever signs in determines whose PRs show up. Sign in with the work account on the work laptop, the personal account on the personal laptop. The `client_id` env var stays the same across machines (it's a public identifier). The `@me` in all search queries resolves to whoever owns the active session.
 
 **Primary queries** (GraphQL search):
 
@@ -175,7 +177,7 @@ A single GraphQL request per poll cycle pulls all needed fields, including `stat
 
 A minimal settings panel reachable from the dashboard header. Three controls:
 
-- **PAT** — input field, masked. Stored in localStorage (XSS-readable; acceptable for a local-only tool — or a config file if running with a backend). Validated on save by hitting GitHub's `/user` endpoint.
+- **Sign-in**: shows "Connected as @login" + a "Sign out" button when a session cookie is present, otherwise a "Sign in with GitHub" button that kicks off the OAuth Device Flow inline. Token health is verified by hitting the api's `/user` endpoint (which in turn hits GitHub's `/user`).
 - **Polling cadence** — dropdown: 30s, 60s, 2m, 5m. Default 30s.
 - **Repo ignore list** — free-text list of `owner/repo` patterns. PRs from matching repos are filtered out before bucketing. Catches the inevitable Dependabot / Renovate flood.
 
@@ -191,7 +193,7 @@ Every fetch resolves into a UI state. The map below covers loading, empty, error
 | Loading (background)             | Refetch with cached data present           | Existing data stays visible, subtle spinner near "Last synced"                                                                                                      |
 | Empty                            | Fetch succeeded, no PRs in a bucket        | Bucket header shows `(0)`, body collapses                                                                                                                           |
 | Empty (global)                   | Fetch succeeded, zero PRs total            | Friendly empty state: "Nothing in flight. Go ship something."                                                                                                       |
-| Error: PAT invalid (401)         | Auth failure                               | Full-page error: "Token rejected. Update your PAT in Settings." Link to Settings.                                                                                   |
+| Session expired/revoked (401)    | Auth failure (token revoked from GitHub)   | Full-page Sign-in page. The api clears the cookie on the 401 response so the next visit goes straight to sign-in without an extra round-trip.                       |
 | Error: Rate limited (403 or 429) | GitHub primary or secondary rate limit hit | Banner: "Rate limited. Resuming at HH:MM." Polling pauses until reset. Read `retry-after` if present (secondary limits), else `x-ratelimit-reset` (primary limits). |
 | Error: Network                   | Fetch threw                                | Banner: "Can't reach GitHub. Retrying…" TanStack Query handles backoff.                                                                                             |
 | Error: Unknown                   | Anything else                              | Banner with the error message and a manual retry button.                                                                                                            |

@@ -15,11 +15,13 @@ Not deployed anywhere. Clone or fork this repo and run it locally.
 
 - **Node.js** `>= 22`
 - **pnpm** `10.33.2` (the repo pins this via `packageManager`; `corepack enable` will pick it up)
-- A **GitHub Personal Access Token (classic)** with scopes:
-  - `repo` (required to read PRs in private repos; use `public_repo` instead if you only care about public PRs)
-  - `read:user`
+- A **GitHub OAuth App** you control (used for the Sign-in-with-GitHub Device Flow):
+  1. Visit https://github.com/settings/applications/new
+  2. **Application name:** anything (e.g. `prq`). **Homepage URL:** `http://localhost:5173`. **Authorization callback URL:** `http://localhost:5173/` (required by the form but unused by Device Flow).
+  3. Check **Enable Device Flow**, click **Register application**.
+  4. Copy the **Client ID** shown at the top of the resulting page.
 
-  Create one at https://github.com/settings/tokens. You'll paste it into the app on first run; it's stored as an HTTP-only cookie on the local api.
+  Scopes prq requests at sign-in: `repo`, `read:user`, `read:org`. The token is stored as an HttpOnly cookie on the local api and is revocable any time at https://github.com/settings/applications.
 
 ## Setup
 
@@ -27,6 +29,8 @@ Not deployed anywhere. Clone or fork this repo and run it locally.
 git clone <your-fork-or-this-repo>.git
 cd prq
 pnpm install
+cp apps/api/.env.example apps/api/.env
+# paste your OAuth App's Client ID into apps/api/.env as PRQ_GITHUB_CLIENT_ID
 ```
 
 ## Run
@@ -43,7 +47,9 @@ pnpm dev:api
 pnpm dev:web
 ```
 
-Then open http://localhost:5173, paste your GitHub PAT when prompted, and you're in.
+Then open http://localhost:5173, click **Sign in with GitHub**, enter the displayed code on github.com/login/device, and you're in.
+
+> If you want to hit `/api/*` directly with `curl`, add `-H "Origin: http://localhost:3001"` so Hono's CSRF middleware accepts the request. Browsers set Origin automatically via the Vite proxy.
 
 ## Repo layout
 

@@ -5,7 +5,7 @@ import { Dashboard } from '@/components/dashboard'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { ErrorBanner } from '@/components/error-banner'
 import { LastSynced } from '@/components/last-synced'
-import { PatErrorPage } from '@/components/pat-error-page'
+import { SignInPage } from '@/components/sign-in-page'
 import { SettingsPanel } from '@/components/settings-panel'
 import { Button } from '@/components/ui/button'
 import { useNotificationBadge } from '@/hooks/use-notification-badge'
@@ -90,7 +90,7 @@ function Home() {
         signedOut={signedOut}
       />
       {fatalAuthError ? (
-        <PatErrorPage onOpenSettings={() => setSettingsOpen(true)} />
+        <SignInPage onSignIn={() => handleAuthChange(true)} />
       ) : (
         <main className="mx-auto max-w-3xl p-6">
           <header className="mb-4 flex items-center justify-between">
