@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+export const TokenHealthResponseSchema = z.object({
+  login: z.string(),
+})
+
 export const DeviceFlowStartResponseSchema = z.object({
   deviceCode: z.string().min(1),
   userCode: z.string().min(1),
