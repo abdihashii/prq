@@ -177,7 +177,7 @@ A single GraphQL request per poll cycle pulls all needed fields, including `stat
 
 A minimal settings panel reachable from the dashboard header. Three controls:
 
-- **Sign-in** — shows "Connected as @login" + a "Sign out" button when a session cookie is present, otherwise a "Sign in with GitHub" button that kicks off the OAuth Device Flow inline. Token health is verified by hitting the api's `/user` endpoint (which in turn hits GitHub's `/user`).
+- **Sign-in**: shows "Connected as @login" + a "Sign out" button when a session cookie is present, otherwise a "Sign in with GitHub" button that kicks off the OAuth Device Flow inline. Token health is verified by hitting the api's `/user` endpoint (which in turn hits GitHub's `/user`).
 - **Polling cadence** — dropdown: 30s, 60s, 2m, 5m. Default 30s.
 - **Repo ignore list** — free-text list of `owner/repo` patterns. PRs from matching repos are filtered out before bucketing. Catches the inevitable Dependabot / Renovate flood.
 

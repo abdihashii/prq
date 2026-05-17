@@ -23,7 +23,7 @@ export function AuthSection({ onAuthChange, signedOut }: AuthSectionProps) {
     },
   })
 
-  // Use isSuccess (not data !== undefined) — TanStack preserves the last
+  // Use isSuccess (not data !== undefined): TanStack preserves the last
   // successful `data` after a subsequent refetch error, so checking `data`
   // would keep showing "Connected as @old" forever after sign-out.
   const isSignedIn = tokenHealth.isSuccess

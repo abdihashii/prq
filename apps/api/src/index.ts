@@ -9,8 +9,8 @@ import { user } from './routes/user'
 if (!githubClientId) {
   console.error(
     'PRQ_GITHUB_CLIENT_ID is not set. Register an OAuth App at '
-    + 'https://github.com/settings/applications/new (enable Device Flow + '
-    + 'token expiration), then set the Client ID in apps/api/.env.',
+    + 'https://github.com/settings/applications/new (enable Device Flow), '
+    + 'then set the Client ID in apps/api/.env.',
   )
   process.exit(1)
 }

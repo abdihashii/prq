@@ -15,7 +15,8 @@ auth.post('/auth/device/start', async (c) => {
     const result = await startDeviceCode(githubClientId)
     return c.json(result)
   }
-  catch {
+  catch (err) {
+    console.error('device/start handler error:', err)
     return c.json(
       { error: { code: 'UPSTREAM_ERROR', message: 'Failed to start GitHub sign-in' } },
       502,
@@ -57,7 +58,8 @@ auth.post(
         }
       }
     }
-    catch {
+    catch (err) {
+      console.error('device/poll handler error:', err)
       return c.json(
         { error: { code: 'UPSTREAM_ERROR', message: 'Failed to reach GitHub' } },
         502,

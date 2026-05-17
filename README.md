@@ -49,6 +49,8 @@ pnpm dev:web
 
 Then open http://localhost:5173, click **Sign in with GitHub**, enter the displayed code on github.com/login/device, and you're in.
 
+> If you want to hit `/api/*` directly with `curl`, add `-H "Origin: http://localhost:3001"` so Hono's CSRF middleware accepts the request. Browsers set Origin automatically via the Vite proxy.
+
 ## Repo layout
 
 ```

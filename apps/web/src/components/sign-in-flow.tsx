@@ -63,27 +63,17 @@ export function SignInFlow({ onSuccess }: SignInFlowProps) {
 
   if (flow === null) {
     return (
-      <div className="space-y-3">
-        <Button type="button" onClick={() => start.mutate()} disabled={start.isPending}>
-          {start.isPending
-            ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Starting…
-                </>
-              )
-            : (
-                'Sign in with GitHub'
-              )}
-        </Button>
-        {start.isError && (
-          <p className="text-destructive text-sm">
-            {start.error instanceof ApiError
-              ? start.error.message
-              : 'Failed to start sign-in. Please try again.'}
-          </p>
-        )}
-      </div>
+      <SignInButton
+        onStart={() => start.mutate()}
+        isStarting={start.isPending}
+        error={
+          start.isError
+            ? (start.error instanceof ApiError
+                ? start.error.message
+                : 'Failed to start sign-in. Please try again.')
+            : null
+        }
+      />
     )
   }
 
@@ -124,20 +114,56 @@ export function SignInFlow({ onSuccess }: SignInFlowProps) {
   }
 
   return (
+    <DeviceCodePrompt userCode={flow.userCode} verificationUri={flow.verificationUri} />
+  )
+}
+
+export function SignInButton({
+  onStart,
+  isStarting,
+  error,
+}: {
+  onStart: () => void
+  isStarting: boolean
+  error: string | null
+}) {
+  return (
+    <div className="space-y-3">
+      <Button type="button" onClick={onStart} disabled={isStarting}>
+        {isStarting
+          ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Starting…
+              </>
+            )
+          : (
+              'Sign in with GitHub'
+            )}
+      </Button>
+      {error !== null && (
+        <p className="text-destructive text-sm">{error}</p>
+      )}
+    </div>
+  )
+}
+
+export function DeviceCodePrompt({
+  userCode,
+  verificationUri,
+}: {
+  userCode: string
+  verificationUri: string
+}) {
+  return (
     <div className="space-y-4">
       <div className="space-y-1">
         <p className="text-muted-foreground text-sm">Enter this code on GitHub:</p>
-        <p className="font-mono text-2xl font-semibold tracking-wider">
-          {flow.userCode}
-        </p>
+        <p className="font-mono text-2xl font-semibold tracking-wider">{userCode}</p>
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Button asChild type="button">
-          <a
-            href={flow.verificationUri}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a href={verificationUri} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="size-4" />
             Open GitHub
           </a>
@@ -151,7 +177,7 @@ export function SignInFlow({ onSuccess }: SignInFlowProps) {
   )
 }
 
-function FlowError({
+export function FlowError({
   title,
   description,
   onRestart,

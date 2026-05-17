@@ -7,7 +7,9 @@ export const TokenHealthResponseSchema = z.object({
 export const DeviceFlowStartResponseSchema = z.object({
   deviceCode: z.string().min(1),
   userCode: z.string().min(1),
-  verificationUri: z.url(),
+  // Pin to github.com so the "Open GitHub" link on the web side can never
+  // become an open redirect if the upstream response gets confused.
+  verificationUri: z.url().startsWith('https://github.com/'),
   interval: z.number().int().positive(),
   expiresIn: z.number().int().positive(),
 })
