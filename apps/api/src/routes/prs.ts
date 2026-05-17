@@ -1,6 +1,5 @@
 import { GraphqlResponseError } from '@octokit/graphql'
 import { type Context, Hono } from 'hono'
-import { getCookie } from 'hono/cookie'
 import {
   type Bucket,
   BucketedResponseSchema,
@@ -11,18 +10,11 @@ import {
 import { fetchPullRequests } from '../github/client'
 import { RawResponseSchema } from '../github/schema'
 import { transform } from '../github/transform'
+import { UnauthorizedError, withAuth } from '../middleware/with-auth'
 
 export const prs = new Hono()
 
 prs.get('/prs', async (c) => {
-  const pat = getCookie(c, 'prq_pat')
-  if (!pat) {
-    return c.json(
-      { error: { code: 'BAD_CREDENTIALS', message: 'No GitHub PAT set' } },
-      401,
-    )
-  }
-
   try {
     // @hono/node-server leaves %2F (slash) in query values un-decoded, while
     // app.request() in tests decodes automatically — normalize via
@@ -40,7 +32,7 @@ prs.get('/prs', async (c) => {
     }
     const allowSet = new Set(parseRepoList(normalized))
 
-    const raw = await fetchPullRequests(pat)
+    const raw = await withAuth(c, token => fetchPullRequests(token))
     const validated = RawResponseSchema.parse(raw)
     const { viewerLogin, rateLimit, pullRequests, ownedRepos } = transform(validated)
 
@@ -72,6 +64,12 @@ prs.get('/prs', async (c) => {
 })
 
 function mapError(c: Context, err: unknown) {
+  if (err instanceof UnauthorizedError) {
+    return c.json(
+      { error: { code: 'BAD_CREDENTIALS', message: 'Not signed in' } },
+      401,
+    )
+  }
   if (err instanceof GraphqlResponseError) {
     const errors = (err.errors ?? []) as Array<{ type?: string }>
     const isRateLimited = errors.some((e) => e.type === 'RATE_LIMITED')
@@ -91,7 +89,7 @@ function mapError(c: Context, err: unknown) {
     const status = (err as { status: unknown }).status
     if (status === 401) {
       return c.json(
-        { error: { code: 'BAD_CREDENTIALS', message: 'GitHub PAT was rejected' } },
+        { error: { code: 'BAD_CREDENTIALS', message: 'GitHub rejected the session' } },
         401,
       )
     }

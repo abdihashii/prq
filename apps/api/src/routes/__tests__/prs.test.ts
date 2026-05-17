@@ -22,7 +22,9 @@ const rawForRepos = (entries: Array<{ owner: string, name: string, id: string }>
 
 const makeApp = () => new Hono().route('/api', prs)
 
-const WITH_COOKIE = { headers: { cookie: 'prq_pat=test-pat' } }
+const WITH_COOKIE = {
+  headers: { cookie: 'prq_access_token=test-access' },
+}
 
 beforeEach(() => {
   mockedFetch.mockReset()
@@ -181,7 +183,7 @@ describe('GET /api/prs', () => {
     ])
   })
 
-  it('no prq_pat cookie → 401 BAD_CREDENTIALS without hitting GitHub', async () => {
+  it('no session cookies → 401 BAD_CREDENTIALS without hitting GitHub', async () => {
     const res = await makeApp().request('/api/prs')
     expect(res.status).toBe(401)
 
