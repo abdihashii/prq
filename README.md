@@ -1,15 +1,15 @@
 # prq
 
-A local tool for tracking the GitHub pull requests that matter to you: the ones you authored, the ones waiting on your review, and the ones you've already reviewed. No more losing them in the noise of GitHub notifications.
+A PR command center for tracking the GitHub pull requests that matter to you: the ones you authored, the ones waiting on your review, and the ones you've already reviewed. No more losing them in the noise of GitHub notifications.
 
-Not deployed anywhere. Clone or fork this repo and run it locally.
+The product direction is locked in [docs/spec.md](docs/spec.md). The setup below describes the current local development app.
 
 ## What it does
 
 - Pulls your open PRs from GitHub in three buckets: **authored by you**, **review requested from you**, **reviewed by you**.
 - Bucket-based dashboard so the PRs you care about don't get buried.
 - Settings + light/dark theme.
-- Runs entirely on your machine. Your GitHub token never leaves your environment.
+- Current development flow runs locally with your GitHub token stored by the local API.
 
 ## Prerequisites
 
