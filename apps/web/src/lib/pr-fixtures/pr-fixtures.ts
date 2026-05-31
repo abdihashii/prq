@@ -11,8 +11,10 @@ const BASE: PullRequest = {
   title: 'feat(web): add semantic color tokens for chromatic surfaces',
   url: 'https://github.com/example/repo/pull/1234',
   repository: { owner: 'example', name: 'repo' },
+  headRepository: { owner: 'example', name: 'repo' },
   author: { login: 'octocat' },
   baseRefName: 'main',
+  headRefName: 'feature/default-pr',
   isDraft: false,
   updatedAt: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
   reviewDecision: null,
@@ -33,7 +35,12 @@ const BASE: PullRequest = {
 }
 
 function build(overrides: Partial<PullRequest>): PullRequest {
-  return { ...BASE, ...overrides }
+  const repository = overrides.repository ?? BASE.repository
+  const headRepository = Object.hasOwn(overrides, 'headRepository')
+    ? (overrides.headRepository ?? null)
+    : repository
+
+  return { ...BASE, headRepository, ...overrides }
 }
 
 export const REVIEW_REQUESTED_SUCCESS = build({
@@ -342,6 +349,7 @@ const STACK_AUTH_BASE = build({
   repository: STACK_REPO,
   bucket: 'waiting',
   baseRefName: 'main',
+  headRefName: 'feat/install-session-shell',
   updatedAt: minutesAgo(44),
   reviewDecision: 'REVIEW_REQUIRED',
   statusCheckRollup: { state: 'SUCCESS' },
@@ -356,6 +364,7 @@ const STACK_AUTH_PERMISSIONS = build({
   repository: STACK_REPO,
   bucket: 'waiting',
   baseRefName: 'feat/install-session-shell',
+  headRefName: 'feat/install-permissions',
   updatedAt: minutesAgo(31),
   reviewDecision: 'REVIEW_REQUIRED',
   statusCheckRollup: { state: 'PENDING' },
@@ -370,6 +379,7 @@ const STACK_AUTH_REPOS = build({
   repository: STACK_REPO,
   bucket: 'waiting',
   baseRefName: 'feat/install-permissions',
+  headRefName: 'feat/install-repo-filter',
   updatedAt: minutesAgo(19),
   reviewDecision: 'REVIEW_REQUIRED',
   statusCheckRollup: { state: 'SUCCESS' },
@@ -384,6 +394,7 @@ const STACK_AUTH_AUDIT = build({
   repository: STACK_REPO,
   bucket: 'waiting',
   baseRefName: 'feat/install-permissions',
+  headRefName: 'feat/install-audit-surface',
   updatedAt: minutesAgo(11),
   reviewDecision: 'REVIEW_REQUIRED',
   statusCheckRollup: { state: 'EXPECTED' },
@@ -422,6 +433,7 @@ const REVIEW_STACK_BASE = build({
   author: { login: 'teammate' },
   bucket: 'review',
   baseRefName: 'main',
+  headRefName: 'feat/batch-review-assignment',
   updatedAt: minutesAgo(16),
   statusCheckRollup: { state: 'SUCCESS' },
   commentsTotalCount: 3,
@@ -436,6 +448,7 @@ const REVIEW_STACK_CHILD = build({
   author: { login: 'teammate' },
   bucket: 'review',
   baseRefName: 'feat/batch-review-assignment',
+  headRefName: 'feat/reviewer-workload-preview',
   updatedAt: minutesAgo(9),
   statusCheckRollup: { state: 'FAILURE' },
   commentsTotalCount: 10,
@@ -452,6 +465,7 @@ const REVIEW_STACK_TOP = build({
   author: { login: 'teammate' },
   bucket: 'review',
   baseRefName: 'feat/reviewer-workload-preview',
+  headRefName: 'test/reviewer-rotation',
   updatedAt: minutesAgo(4),
   statusCheckRollup: { state: 'PENDING' },
   commentsTotalCount: 1,
@@ -487,6 +501,7 @@ const AUTO_RETARGET_BASE = build({
   repository: { owner: 'octo-org', name: 'prq' },
   bucket: 'ready',
   baseRefName: 'main',
+  headRefName: 'feat/dashboard-stack-grouping',
   updatedAt: minutesAgo(27),
   reviewDecision: 'APPROVED',
   mergeable: 'MERGEABLE',
@@ -501,6 +516,7 @@ const AUTO_RETARGET_CHILD = build({
   repository: { owner: 'octo-org', name: 'prq' },
   bucket: 'ready',
   baseRefName: 'main',
+  headRefName: 'feat/dashboard-stack-context',
   updatedAt: minutesAgo(7),
   reviewDecision: 'APPROVED',
   mergeable: 'MERGEABLE',

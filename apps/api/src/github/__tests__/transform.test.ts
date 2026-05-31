@@ -268,6 +268,25 @@ describe('transform', () => {
     expect(result.pullRequests[0]?.commitsTotalCount).toBe(7)
   })
 
+  it('projects headRepository from raw PR data', () => {
+    const result = transform(
+      makeRawResponse({
+        authored: [
+          makeRawPr({
+            id: 'head-repo',
+            author: { login: 'me' },
+            headRepository: { name: 'forked-repo', owner: { login: 'contributor' } },
+          }),
+        ],
+      }),
+    )
+
+    expect(result.pullRequests[0]?.headRepository).toEqual({
+      owner: 'contributor',
+      name: 'forked-repo',
+    })
+  })
+
   it('projects requestedReviewers across all reviewer kinds', () => {
     const result = transform(
       makeRawResponse({

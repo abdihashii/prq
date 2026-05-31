@@ -55,6 +55,13 @@ fragment PrFields on PullRequest {
   url
   isDraft
   baseRefName
+  headRefName
+  headRepository {
+    name
+    owner {
+      login
+    }
+  }
   updatedAt
   reviewDecision
   mergeable

@@ -17,8 +17,13 @@ export const PullRequestSchema = z.object({
     owner: z.string(),
     name: z.string(),
   }),
+  headRepository: z.object({
+    owner: z.string(),
+    name: z.string(),
+  }).nullable(),
   author: z.object({ login: z.string() }).nullable(),
   baseRefName: z.string(),
+  headRefName: z.string(),
   isDraft: z.boolean(),
   updatedAt: z.iso.datetime(),
   reviewDecision: z.enum(['APPROVED', 'CHANGES_REQUESTED', 'REVIEW_REQUIRED']).nullable(),
