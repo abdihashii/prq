@@ -1,6 +1,12 @@
 export { BucketSchema, DISPLAY_ORDER, EVALUATION_ORDER } from './schemas/bucket'
 export { PullRequestSchema, RequestedReviewerSchema } from './schemas/pullRequest'
 export {
+  DashboardBucketsSchema,
+  DashboardItemSchema,
+  DashboardResponseSchema,
+  StackNodeSchema,
+} from './schemas/dashboard'
+export {
   ApiErrorCodeSchema,
   ApiErrorSchema,
   BucketedResponseSchema,
@@ -24,6 +30,12 @@ export {
 
 export type { Bucket } from './types/bucket'
 export type { PullRequest, RequestedReviewer } from './types/pullRequest'
+export type {
+  DashboardBuckets,
+  DashboardItem,
+  DashboardResponse,
+  StackNode,
+} from './types/dashboard'
 export type { ApiErrorCode, ApiErrorPayload, BucketedResponse, RateLimit } from './types/contract'
 export type { TrackableRepo } from './types/trackableRepo'
 export type { PollingMs, Settings, Theme, TrackedRepos } from './types/settings'
@@ -36,3 +48,4 @@ export type {
 
 export { assignBucket } from './lib/bucket'
 export { mergeTrackableRepos, parseRepoList } from './lib/repo'
+export { inferDashboardStacks } from './lib/stack'
