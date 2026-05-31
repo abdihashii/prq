@@ -58,6 +58,14 @@ export const ReadyToMerge: Story = {
   args: { pr: READY_TO_MERGE, bucket: 'ready' },
 }
 
+export const AutoRetargeted: Story = {
+  args: {
+    pr: READY_TO_MERGE,
+    bucket: 'ready',
+    autoRetargetedFromBaseRefName: 'feat/dashboard-stack-grouping',
+  },
+}
+
 export const WaitingPending: Story = {
   args: { pr: WAITING_PENDING, bucket: 'waiting' },
 }
