@@ -4,6 +4,8 @@ import { PrRow } from './pr-row'
 import {
   ATTENTION_BUCKET,
   DRAFTS_BUCKET,
+  DISPLAY_BUCKETS_NESTED_STACKS,
+  DISPLAY_BUCKETS_REVIEW_STACKS,
   READY_BUCKET,
   REVIEW_BUCKET,
   WAITING_BUCKET,
@@ -31,6 +33,10 @@ export const ReviewPopulated: Story = {
   args: { bucket: 'review', prs: REVIEW_BUCKET },
 }
 
+export const ReviewStack: Story = {
+  args: { bucket: 'review', items: DISPLAY_BUCKETS_REVIEW_STACKS.review },
+}
+
 export const ReviewEmpty: Story = {
   args: { bucket: 'review', prs: [] },
 }
@@ -53,6 +59,10 @@ export const ReadyEmpty: Story = {
 
 export const WaitingPopulated: Story = {
   args: { bucket: 'waiting', prs: WAITING_BUCKET },
+}
+
+export const WaitingNestedStack: Story = {
+  args: { bucket: 'waiting', items: DISPLAY_BUCKETS_NESTED_STACKS.waiting },
 }
 
 export const WaitingEmpty: Story = {
