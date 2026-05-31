@@ -17,6 +17,10 @@ export const PullRequestSchema = z.object({
     owner: z.string(),
     name: z.string(),
   }),
+  headRepository: z.object({
+    owner: z.string(),
+    name: z.string(),
+  }).nullable(),
   author: z.object({ login: z.string() }).nullable(),
   baseRefName: z.string(),
   headRefName: z.string(),

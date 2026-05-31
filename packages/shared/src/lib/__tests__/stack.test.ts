@@ -27,6 +27,7 @@ function pr(id: string, overrides: Partial<PullRequest> = {}): PullRequest {
     title: `PR ${id}`,
     url: `https://github.com/${repository.owner}/${repository.name}/pull/${number}`,
     repository,
+    headRepository: repository,
     author: { login: 'haji' },
     baseRefName: 'main',
     headRefName: `feature/${id}`,
@@ -242,6 +243,48 @@ describe('inferDashboardStacks', () => {
     expect(result.waiting).toEqual([
       { kind: 'pr', pr: firstParent },
       { kind: 'pr', pr: secondParent },
+      { kind: 'pr', pr: child },
+    ])
+  })
+
+  it('does not group a base-repo child under a fork PR with the same head branch name', () => {
+    const baseRepository = { owner: 'base-org', name: 'repo' }
+    const forkRepository = { owner: 'contributor', name: 'repo' }
+    const forkPr = pr('fork-pr', {
+      repository: baseRepository,
+      headRepository: forkRepository,
+      baseRefName: 'main',
+      headRefName: 'feature/shared',
+    })
+    const baseRepoChild = pr('base-repo-child', {
+      repository: baseRepository,
+      headRepository: baseRepository,
+      baseRefName: 'feature/shared',
+      headRefName: 'feature/child',
+    })
+
+    const result = inferDashboardStacks(buckets({ waiting: [forkPr, baseRepoChild] }))
+
+    expect(result.waiting).toEqual([
+      { kind: 'pr', pr: forkPr },
+      { kind: 'pr', pr: baseRepoChild },
+    ])
+  })
+
+  it('does not index PRs with unavailable head repositories as parents', () => {
+    const parent = pr('parent', {
+      headRepository: null,
+      headRefName: 'feature/parent',
+    })
+    const child = pr('child', {
+      baseRefName: 'feature/parent',
+      headRefName: 'feature/child',
+    })
+
+    const result = inferDashboardStacks(buckets({ waiting: [parent, child] }))
+
+    expect(result.waiting).toEqual([
+      { kind: 'pr', pr: parent },
       { kind: 'pr', pr: child },
     ])
   })

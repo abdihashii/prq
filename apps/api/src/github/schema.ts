@@ -46,6 +46,10 @@ export const RawPullRequestSchema = z.object({
   isDraft: z.boolean(),
   baseRefName: z.string(),
   headRefName: z.string(),
+  headRepository: z.object({
+    name: z.string(),
+    owner: z.object({ login: z.string() }),
+  }).nullable(),
   updatedAt: z.iso.datetime(),
   reviewDecision: z.enum(['APPROVED', 'CHANGES_REQUESTED', 'REVIEW_REQUIRED']).nullable(),
   mergeable: z.enum(['MERGEABLE', 'CONFLICTING', 'UNKNOWN']),

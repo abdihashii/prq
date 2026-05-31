@@ -24,7 +24,9 @@ function inferBucketStacks(prs: PullRequest[]): DashboardItem[] {
   for (const pr of prs) {
     nodesById.set(pr.id, { pr, children: [] })
 
-    const key = branchKey(pr, pr.headRefName)
+    const key = headBranchKey(pr)
+    if (key === null) continue
+
     const candidates = parentCandidatesByHeadRef.get(key) ?? []
     candidates.push(pr.id)
     parentCandidatesByHeadRef.set(key, candidates)
@@ -33,7 +35,7 @@ function inferBucketStacks(prs: PullRequest[]): DashboardItem[] {
   const parentByChild = new Map<string, string>()
   for (const pr of prs) {
     const candidates = parentCandidatesByHeadRef
-      .get(branchKey(pr, pr.baseRefName))
+      .get(baseBranchKey(pr))
       ?.filter(candidateId => candidateId !== pr.id) ?? []
 
     if (candidates.length === 1) parentByChild.set(pr.id, candidates[0]!)
@@ -96,6 +98,15 @@ function toStackNode(node: MutableStackNode): StackNode {
   }
 }
 
-function branchKey(pr: Pick<PullRequest, 'repository'>, refName: string): string {
-  return JSON.stringify([pr.repository.owner, pr.repository.name, refName])
+function headBranchKey(pr: Pick<PullRequest, 'headRepository' | 'headRefName'>): string | null {
+  if (pr.headRepository === null) return null
+  return branchKey(pr.headRepository, pr.headRefName)
+}
+
+function baseBranchKey(pr: Pick<PullRequest, 'repository' | 'baseRefName'>): string {
+  return branchKey(pr.repository, pr.baseRefName)
+}
+
+function branchKey(repository: { owner: string, name: string }, refName: string): string {
+  return JSON.stringify([repository.owner, repository.name, refName])
 }

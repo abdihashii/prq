@@ -56,6 +56,12 @@ fragment PrFields on PullRequest {
   isDraft
   baseRefName
   headRefName
+  headRepository {
+    name
+    owner {
+      login
+    }
+  }
   updatedAt
   reviewDecision
   mergeable

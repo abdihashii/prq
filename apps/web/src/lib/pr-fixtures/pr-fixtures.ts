@@ -11,6 +11,7 @@ const BASE: PullRequest = {
   title: 'feat(web): add semantic color tokens for chromatic surfaces',
   url: 'https://github.com/example/repo/pull/1234',
   repository: { owner: 'example', name: 'repo' },
+  headRepository: { owner: 'example', name: 'repo' },
   author: { login: 'octocat' },
   baseRefName: 'main',
   headRefName: 'feature/default-pr',
@@ -34,7 +35,12 @@ const BASE: PullRequest = {
 }
 
 function build(overrides: Partial<PullRequest>): PullRequest {
-  return { ...BASE, ...overrides }
+  const repository = overrides.repository ?? BASE.repository
+  const headRepository = Object.hasOwn(overrides, 'headRepository')
+    ? (overrides.headRepository ?? null)
+    : repository
+
+  return { ...BASE, headRepository, ...overrides }
 }
 
 export const REVIEW_REQUESTED_SUCCESS = build({

@@ -9,6 +9,7 @@ const baseRawPr: RawPullRequest = {
   isDraft: false,
   baseRefName: 'main',
   headRefName: 'feature/default-pr',
+  headRepository: { name: 'repo', owner: { login: 'owner' } },
   updatedAt: '2026-01-01T00:00:00Z',
   reviewDecision: null,
   mergeable: 'MERGEABLE',
@@ -23,7 +24,13 @@ const baseRawPr: RawPullRequest = {
 }
 
 export function makeRawPr(overrides: Partial<RawPullRequest> = {}): RawPullRequest {
-  return { ...baseRawPr, ...overrides }
+  const headRepository = Object.hasOwn(overrides, 'headRepository')
+    ? (overrides.headRepository ?? null)
+    : overrides.repository
+      ? { name: overrides.repository.name, owner: overrides.repository.owner }
+      : baseRawPr.headRepository
+
+  return { ...baseRawPr, headRepository, ...overrides }
 }
 
 export function makeRawResponse(

@@ -30616,7 +30616,10 @@ export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 
       | { __typename: 'Issue' }
       | { __typename: 'MarketplaceListing' }
       | { __typename: 'Organization' }
-      | { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, repository: { __typename: 'Repository', name: string, owner:
+      | { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, headRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, headRepository?: { __typename: 'Repository', name: string, owner:
+            | { __typename: 'Organization', login: string }
+            | { __typename: 'User', login: string }
+           } | null, repository: { __typename: 'Repository', name: string, owner:
             | { __typename: 'Organization', login: string }
             | { __typename: 'User', login: string }
            }, author?:
@@ -30657,7 +30660,10 @@ export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 
       | { __typename: 'Issue' }
       | { __typename: 'MarketplaceListing' }
       | { __typename: 'Organization' }
-      | { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, repository: { __typename: 'Repository', name: string, owner:
+      | { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, headRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, headRepository?: { __typename: 'Repository', name: string, owner:
+            | { __typename: 'Organization', login: string }
+            | { __typename: 'User', login: string }
+           } | null, repository: { __typename: 'Repository', name: string, owner:
             | { __typename: 'Organization', login: string }
             | { __typename: 'User', login: string }
            }, author?:
@@ -30698,7 +30704,10 @@ export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 
       | { __typename: 'Issue' }
       | { __typename: 'MarketplaceListing' }
       | { __typename: 'Organization' }
-      | { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, repository: { __typename: 'Repository', name: string, owner:
+      | { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, headRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, headRepository?: { __typename: 'Repository', name: string, owner:
+            | { __typename: 'Organization', login: string }
+            | { __typename: 'User', login: string }
+           } | null, repository: { __typename: 'Repository', name: string, owner:
             | { __typename: 'Organization', login: string }
             | { __typename: 'User', login: string }
            }, author?:
@@ -30735,7 +30744,10 @@ export type GetPullRequestsQuery = { __typename: 'Query', viewer: { __typename: 
       | { __typename: 'User' }
      | null> | null } };
 
-export type PrFieldsFragment = { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, repository: { __typename: 'Repository', name: string, owner:
+export type PrFieldsFragment = { __typename: 'PullRequest', id: string, number: number, title: string, url: string, isDraft: boolean, baseRefName: string, headRefName: string, updatedAt: string, reviewDecision?: PullRequestReviewDecision | null, mergeable: MergeableState, headRepository?: { __typename: 'Repository', name: string, owner:
+      | { __typename: 'Organization', login: string }
+      | { __typename: 'User', login: string }
+     } | null, repository: { __typename: 'Repository', name: string, owner:
       | { __typename: 'Organization', login: string }
       | { __typename: 'User', login: string }
      }, author?:
