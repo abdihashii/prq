@@ -8,6 +8,7 @@ const baseRawPr: RawPullRequest = {
   url: 'https://github.com/owner/repo/pull/1',
   isDraft: false,
   baseRefName: 'main',
+  headRefName: 'feature/default-pr',
   updatedAt: '2026-01-01T00:00:00Z',
   reviewDecision: null,
   mergeable: 'MERGEABLE',

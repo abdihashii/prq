@@ -55,6 +55,7 @@ fragment PrFields on PullRequest {
   url
   isDraft
   baseRefName
+  headRefName
   updatedAt
   reviewDecision
   mergeable

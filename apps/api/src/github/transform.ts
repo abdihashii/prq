@@ -125,6 +125,7 @@ function projectAndBucket(raw: RawPullRequest, viewerLogin: string): PullRequest
     repository: { owner: raw.repository.owner.login, name: raw.repository.name },
     author: raw.author ? { login: raw.author.login } : null,
     baseRefName: raw.baseRefName,
+    headRefName: raw.headRefName,
     isDraft: raw.isDraft,
     updatedAt: raw.updatedAt,
     reviewDecision: raw.reviewDecision,
