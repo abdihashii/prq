@@ -35,19 +35,29 @@ function StackNodeView({ node, bucket, depth }: StackNodeViewProps) {
       {children.length > 0 && (
         <div
           className={cn(
-            'mt-1 space-y-1 border-l border-border pl-3',
-            depth === 0 ? 'ml-4 sm:ml-6 sm:pl-4' : 'ml-3 sm:ml-5',
+            'mt-1 space-y-1',
+            depth === 0 ? 'ml-4 sm:ml-6' : 'ml-3 sm:ml-5',
           )}
         >
-          {children.map((child) => (
-            <div key={child.pr.id} className="relative">
-              <span
-                aria-hidden="true"
-                className="absolute -left-3 top-5 h-px w-3 bg-border sm:-left-4 sm:w-4"
-              />
-              <StackNodeView node={child} bucket={bucket} depth={depth + 1} />
-            </div>
-          ))}
+          {children.map((child, index) => {
+            const isLast = index === children.length - 1
+            return (
+              <div key={child.pr.id} className="relative pl-3 sm:pl-4">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'absolute left-0 top-0 w-px bg-border',
+                    isLast ? 'h-5' : '-bottom-1',
+                  )}
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute left-0 top-5 h-px w-3 bg-border sm:w-4"
+                />
+                <StackNodeView node={child} bucket={bucket} depth={depth + 1} />
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
