@@ -206,6 +206,10 @@ function displayBuckets(overrides: Partial<DashboardDisplayBuckets>): DashboardD
   }
 }
 
+function prItems(prs: PullRequest[]) {
+  return prs.map((pr) => ({ kind: 'pr' as const, pr }))
+}
+
 function responseFromDisplayBuckets(displayItems: DashboardDisplayBuckets): BucketedResponse {
   return {
     ...BUCKETED_RESPONSE_POPULATED,
@@ -330,17 +334,6 @@ export const DENSE_DRAFTS_BUCKET: PullRequest[] = Array.from({ length: 3 }, (_, 
   statusCheckRollup: index === 0 ? { state: 'PENDING' } : null,
   commitsTotalCount: 2 + index * 3,
 }))
-
-export const BUCKETED_RESPONSE_DENSE: BucketedResponse = {
-  ...BUCKETED_RESPONSE_POPULATED,
-  buckets: {
-    review: DENSE_REVIEW_BUCKET,
-    attention: DENSE_ATTENTION_BUCKET,
-    ready: DENSE_READY_BUCKET,
-    waiting: DENSE_WAITING_BUCKET,
-    drafts: DENSE_DRAFTS_BUCKET,
-  },
-}
 
 const STACK_AUTH_BASE = build({
   id: 'PR_stack_auth_base',
@@ -531,3 +524,22 @@ export const DISPLAY_BUCKETS_AUTO_RETARGET = displayBuckets({
 })
 
 export const BUCKETED_RESPONSE_AUTO_RETARGET = responseFromDisplayBuckets(DISPLAY_BUCKETS_AUTO_RETARGET)
+
+export const DISPLAY_BUCKETS_DENSE = displayBuckets({
+  review: [
+    { kind: 'stack', root: REVIEW_STACK },
+    ...prItems(DENSE_REVIEW_BUCKET),
+  ],
+  attention: prItems(DENSE_ATTENTION_BUCKET),
+  ready: [
+    { kind: 'stack', root: AUTO_RETARGET_STACK },
+    ...prItems(DENSE_READY_BUCKET),
+  ],
+  waiting: [
+    { kind: 'stack', root: NESTED_STACK },
+    ...prItems(DENSE_WAITING_BUCKET),
+  ],
+  drafts: prItems(DENSE_DRAFTS_BUCKET),
+})
+
+export const BUCKETED_RESPONSE_DENSE = responseFromDisplayBuckets(DISPLAY_BUCKETS_DENSE)

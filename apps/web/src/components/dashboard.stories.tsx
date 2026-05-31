@@ -11,6 +11,7 @@ import {
   BUCKETED_RESPONSE_POPULATED,
   BUCKETED_RESPONSE_REVIEW_STACKS,
   DISPLAY_BUCKETS_AUTO_RETARGET,
+  DISPLAY_BUCKETS_DENSE,
   DISPLAY_BUCKETS_NESTED_STACKS,
   DISPLAY_BUCKETS_REVIEW_STACKS,
 } from '@/lib/pr-fixtures/pr-fixtures'
@@ -46,7 +47,10 @@ export const AllEmpty: Story = {
 }
 
 export const DensePrVolume: Story = {
-  args: { data: BUCKETED_RESPONSE_DENSE },
+  args: {
+    data: BUCKETED_RESPONSE_DENSE,
+    displayBuckets: DISPLAY_BUCKETS_DENSE,
+  },
 }
 
 export const NestedStacks: Story = {
