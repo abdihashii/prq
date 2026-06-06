@@ -3,7 +3,7 @@ import { TokenHealthResponseSchema } from '@prq/shared'
 export async function getViewer(pat: string): Promise<{ login: string }> {
   const res = await fetch('https://api.github.com/user', {
     headers: {
-      authorization: `token ${pat}`,
+      authorization: `Bearer ${pat}`,
       'user-agent': 'prq',
       accept: 'application/vnd.github+json',
     },

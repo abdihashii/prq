@@ -4,6 +4,7 @@ import {
   autoRetargetEvents,
   autoRetargetStatusEnum,
   githubInstallations,
+  githubSessions,
   githubUsers,
   pullRequestReviewRequests,
   pullRequestReviews,
@@ -19,6 +20,7 @@ describe('database schema', () => {
     expect([
       githubUsers,
       githubInstallations,
+      githubSessions,
       repositories,
       pullRequests,
       pullRequestReviewRequests,
@@ -28,6 +30,7 @@ describe('database schema', () => {
     ].map(getTableName)).toEqual([
       'github_users',
       'github_installations',
+      'github_sessions',
       'repositories',
       'pull_requests',
       'pull_request_review_requests',

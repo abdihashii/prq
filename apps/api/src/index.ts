@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { csrf } from 'hono/csrf'
-import { githubClientId } from './config'
+import { githubAppAuthConfig, githubClientId, missingGitHubAppAuthConfig } from './config'
 import { auth } from './routes/auth'
 import { prs } from './routes/prs'
 import { user } from './routes/user'
@@ -11,6 +11,14 @@ if (!githubClientId) {
     'PRQ_GITHUB_CLIENT_ID is not set. Register an OAuth App at '
     + 'https://github.com/settings/applications/new (enable Device Flow), '
     + 'then set the Client ID in apps/api/.env.',
+  )
+  process.exit(1)
+}
+
+const missingGitHubAppConfig = missingGitHubAppAuthConfig(githubAppAuthConfig)
+if (process.env['NODE_ENV'] === 'production' && missingGitHubAppConfig.length > 0) {
+  console.error(
+    `GitHub App auth is missing required production config: ${missingGitHubAppConfig.join(', ')}`,
   )
   process.exit(1)
 }
