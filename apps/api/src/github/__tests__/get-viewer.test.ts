@@ -26,7 +26,7 @@ describe('getViewer', () => {
 
     await getViewer('my-pat')
     const headers = captured?.headers as Record<string, string>
-    expect(headers['authorization']).toBe('token my-pat')
+    expect(headers['authorization']).toBe('Bearer my-pat')
     expect(headers['user-agent']).toBe('prq')
     expect(headers['accept']).toBe('application/vnd.github+json')
   })

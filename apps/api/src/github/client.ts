@@ -8,7 +8,7 @@ const QUERY = readFileSync(join(here, '../queries/getPullRequests.graphql'), 'ut
 
 export async function fetchPullRequests(pat: string): Promise<unknown> {
   const gh = graphql.defaults({
-    headers: { authorization: `token ${pat}` },
+    headers: { authorization: `Bearer ${pat}` },
   })
   return gh(QUERY)
 }

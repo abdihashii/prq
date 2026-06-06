@@ -9,19 +9,21 @@ The product direction is locked in [docs/spec.md](docs/spec.md). The setup below
 - Pulls your open PRs from GitHub in three buckets: **authored by you**, **review requested from you**, **reviewed by you**.
 - Bucket-based dashboard so the PRs you care about don't get buried.
 - Settings + light/dark theme.
-- Current development flow runs locally with your GitHub token stored by the local API.
+- Current development flow runs locally with GitHub App sign-in and an API-managed session.
 
 ## Prerequisites
 
 - **Node.js** `>= 22`
 - **pnpm** `10.33.2` (the repo pins this via `packageManager`; `corepack enable` will pick it up)
-- A **GitHub OAuth App** you control (used for the Sign-in-with-GitHub Device Flow):
-  1. Visit https://github.com/settings/applications/new
-  2. **Application name:** anything (e.g. `prq`). **Homepage URL:** `http://localhost:5173`. **Authorization callback URL:** `http://localhost:5173/` (required by the form but unused by Device Flow).
-  3. Check **Enable Device Flow**, click **Register application**.
-  4. Copy the **Client ID** shown at the top of the resulting page.
-
-  Scopes prq requests at sign-in: `repo`, `read:user`, `read:org`. The token is stored as an HttpOnly cookie on the local api and is revocable any time at https://github.com/settings/applications.
+- **Docker** with Compose
+- A **GitHub App** you control:
+  1. Create one at https://github.com/settings/apps/new.
+  2. Set **Callback URL** to `http://localhost:3001/api/auth/github/callback`.
+  3. Set **Setup URL** to `http://localhost:3001/api/auth/github/setup`.
+  4. Enable **Redirect on update**.
+  5. Keep **Request user authorization (OAuth) during installation** disabled.
+  6. Grant read-only repository permissions for Checks, Commit statuses, Contents, and Pull requests.
+  7. Copy the **Client ID** and generate a **Client secret**.
 
 ## Setup
 
@@ -30,7 +32,9 @@ git clone <your-fork-or-this-repo>.git
 cd prq
 pnpm install
 cp apps/api/.env.example apps/api/.env
-# paste your OAuth App's Client ID into apps/api/.env as PRQ_GITHUB_CLIENT_ID
+# paste your GitHub App Client ID and Client secret into apps/api/.env
+docker compose up -d postgres
+pnpm db:migrate
 ```
 
 ## Run
@@ -47,7 +51,7 @@ pnpm dev:api
 pnpm dev:web
 ```
 
-Then open http://localhost:5173, click **Sign in with GitHub**, enter the displayed code on github.com/login/device, and you're in.
+Then open http://localhost:5173 and click **Sign in with GitHub**.
 
 > If you want to hit `/api/*` directly with `curl`, add `-H "Origin: http://localhost:3001"` so Hono's CSRF middleware accepts the request. Browsers set Origin automatically via the Vite proxy.
 

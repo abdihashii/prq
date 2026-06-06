@@ -97,6 +97,24 @@ export const githubInstallations = pgTable('github_installations', {
   index('github_installations_account_login_idx').on(table.accountLogin),
 ])
 
+export const githubSessions = pgTable('github_sessions', {
+  sessionIdHash: text('session_id_hash').primaryKey(),
+  githubUserId: text('github_user_id').notNull().references(
+    () => githubUsers.githubId,
+    { onDelete: 'cascade' },
+  ),
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  accessTokenExpiresAt: nullableTimestamp('access_token_expires_at'),
+  refreshTokenExpiresAt: nullableTimestamp('refresh_token_expires_at'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, table => [
+  index('github_sessions_user_idx').on(table.githubUserId),
+  index('github_sessions_expires_at_idx').on(table.expiresAt),
+])
+
 export const repositories = pgTable('repositories', {
   githubRepositoryId: text('github_repository_id').primaryKey(),
   githubInstallationId: text('github_installation_id').references(

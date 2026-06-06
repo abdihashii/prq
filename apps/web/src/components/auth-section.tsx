@@ -28,14 +28,6 @@ export function AuthSection({ onAuthChange, signedOut }: AuthSectionProps) {
   // would keep showing "Connected as @old" forever after sign-out.
   const isSignedIn = tokenHealth.isSuccess
 
-  const handleSignInSuccess = () => {
-    // Mirror the prior PatSection flow: flip parent state, clear caches so
-    // the dashboard refetches from a clean slate.
-    onAuthChange(true)
-    queryClient.removeQueries({ queryKey: ['token-health'] })
-    queryClient.removeQueries({ queryKey: ['prs'] })
-  }
-
   if (tokenHealth.isLoading) {
     return (
       <section className="flex items-center gap-2 text-sm">
@@ -74,7 +66,7 @@ export function AuthSection({ onAuthChange, signedOut }: AuthSectionProps) {
 
   return (
     <section className="space-y-3">
-      <SignInFlow onSuccess={handleSignInSuccess} />
+      <SignInFlow />
     </section>
   )
 }
