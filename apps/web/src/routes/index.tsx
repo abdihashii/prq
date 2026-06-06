@@ -90,7 +90,7 @@ function Home() {
         signedOut={signedOut}
       />
       {fatalAuthError ? (
-        <SignInPage onSignIn={() => handleAuthChange(true)} />
+        <SignInPage />
       ) : (
         <main className="mx-auto max-w-3xl p-6">
           <header className="mb-4 flex items-center justify-between">
