@@ -56,7 +56,7 @@ describe('useSettings', () => {
     ).toEqual({ pollingMs: 30_000, trackedRepos: ['vercel/next.js'] })
   })
 
-  it('re-hydrates when viewerLogin changes (PAT swap)', () => {
+  it('re-hydrates when viewerLogin changes (account swap)', () => {
     window.localStorage.setItem(
       'prq:settings:haji',
       JSON.stringify({ pollingMs: 60_000, trackedRepos: ['a/b'] }),

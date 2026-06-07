@@ -1,4 +1,5 @@
-import type { BucketedResponse, PullRequest } from '@prq/shared'
+import type { Bucket, DashboardResponse, PullRequest } from '@prq/shared'
+import { inferDashboardStacks } from '@prq/shared'
 import type {
   DashboardDisplayBuckets,
   StackNode,
@@ -79,7 +80,7 @@ export const REVIEW_REQUESTED_FAILURE = build({
 export const REVIEW_NO_CI = build({
   id: 'PR_review_no_ci',
   number: 4101,
-  title: 'docs: clarify PAT scopes for fine-grained tokens',
+  title: 'docs: clarify GitHub App permission scopes',
   bucket: 'review',
   statusCheckRollup: null,
   commentsTotalCount: 0,
@@ -165,32 +166,26 @@ export const DRAFTS_BUCKET: PullRequest[] = [DRAFT]
 const SYNCED_AT = new Date(Date.now() - 30 * 1000).toISOString()
 const RESET_AT = new Date(Date.now() + 45 * 60 * 1000).toISOString()
 
-export const BUCKETED_RESPONSE_POPULATED: BucketedResponse = {
-  buckets: {
+export const BUCKETED_RESPONSE_POPULATED: DashboardResponse = dashboardResponse({
     review: REVIEW_BUCKET,
     attention: ATTENTION_BUCKET,
     ready: READY_BUCKET,
     waiting: WAITING_BUCKET,
     drafts: DRAFTS_BUCKET,
-  },
-  viewerLogin: 'octocat',
-  syncedAt: SYNCED_AT,
-  rateLimit: { cost: 1, remaining: 4998, resetAt: RESET_AT },
-  trackableRepos: [],
-}
+})
 
-export const BUCKETED_RESPONSE_MIXED: BucketedResponse = {
+export const BUCKETED_RESPONSE_MIXED: DashboardResponse = {
   ...BUCKETED_RESPONSE_POPULATED,
-  buckets: {
+  buckets: inferDashboardStacks({
     review: REVIEW_BUCKET,
     attention: [],
     ready: READY_BUCKET,
     waiting: [],
     drafts: DRAFTS_BUCKET,
-  },
+  }),
 }
 
-export const BUCKETED_RESPONSE_EMPTY: BucketedResponse = {
+export const BUCKETED_RESPONSE_EMPTY: DashboardResponse = {
   ...BUCKETED_RESPONSE_POPULATED,
   buckets: { review: [], attention: [], ready: [], waiting: [], drafts: [] },
 }
@@ -217,17 +212,24 @@ function prItems(prs: PullRequest[]) {
   return prs.map((pr) => ({ kind: 'pr' as const, pr }))
 }
 
-function responseFromDisplayBuckets(displayItems: DashboardDisplayBuckets): BucketedResponse {
+function dashboardResponse(buckets: Record<Bucket, PullRequest[]>): DashboardResponse {
   return {
-    ...BUCKETED_RESPONSE_POPULATED,
-    buckets: {
-      review: flattenDisplayItems(displayItems.review),
-      attention: flattenDisplayItems(displayItems.attention),
-      ready: flattenDisplayItems(displayItems.ready),
-      waiting: flattenDisplayItems(displayItems.waiting),
-      drafts: flattenDisplayItems(displayItems.drafts),
-    },
+    buckets: inferDashboardStacks(buckets),
+    viewerLogin: 'octocat',
+    syncedAt: SYNCED_AT,
+    rateLimit: { cost: 1, remaining: 4998, resetAt: RESET_AT },
+    trackableRepos: [],
   }
+}
+
+function responseFromDisplayBuckets(displayItems: DashboardDisplayBuckets): DashboardResponse {
+  return dashboardResponse({
+    review: flattenDisplayItems(displayItems.review),
+    attention: flattenDisplayItems(displayItems.attention),
+    ready: flattenDisplayItems(displayItems.ready),
+    waiting: flattenDisplayItems(displayItems.waiting),
+    drafts: flattenDisplayItems(displayItems.drafts),
+  })
 }
 
 const DENSE_REVIEW_TITLES = [
@@ -235,8 +237,8 @@ const DENSE_REVIEW_TITLES = [
   'fix(web): preserve selected repo filters on refresh',
   'refactor(shared): collapse status rollup formatting',
   'feat(worker): retry webhook deliveries after secondary limits',
-  'fix(auth): clear stale device-flow cookies on 401',
-  'docs: document GraphQL search pagination limits',
+  'fix(auth): clear stale session cookies on 401',
+  'docs: document stored dashboard projection limits',
   'feat(web): show unavailable reviewers in queue rows',
   'test(api): cover review thread aggregation',
   'refactor(web): simplify settings drawer hydration',

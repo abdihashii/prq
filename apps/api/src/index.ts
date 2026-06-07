@@ -3,7 +3,6 @@ import { Hono } from 'hono'
 import { csrf } from 'hono/csrf'
 import {
   githubAppAuthConfig,
-  githubClientId,
   githubWebhookSecret,
   missingGitHubAppAuthConfig,
 } from './config'
@@ -12,7 +11,7 @@ import { prs } from './routes/prs'
 import { user } from './routes/user'
 import { webhooks } from './routes/webhooks'
 
-if (!githubClientId) {
+if (!githubAppAuthConfig.clientId) {
   console.error(
     'PRQ_GITHUB_CLIENT_ID is not set. Register a GitHub App at '
     + 'https://github.com/settings/apps/new, then set its Client ID in apps/api/.env.',

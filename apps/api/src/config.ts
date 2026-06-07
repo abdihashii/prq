@@ -51,7 +51,6 @@ export function missingGitHubAppAuthConfig(config: GitHubAppAuthConfig): string[
 }
 
 export const githubAppAuthConfig = resolveGitHubAppAuthConfig()
-export const githubClientId = githubAppAuthConfig.clientId
 export const githubWebhookSecret = resolveGitHubWebhookSecret()
 
 function emptyToUndefined(value: string | undefined): string | undefined {

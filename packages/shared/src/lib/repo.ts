@@ -43,15 +43,15 @@ export function parseRepoList(input: string | undefined): string[] {
 }
 
 /**
- * Build the universe of repos the settings picker shows: the user's owned
- * repositories (fetched server-side from GitHub) merged with any repo that
- * appears in their PR firehose. Repos with at least one matching PR get
+ * Build the universe of repos the settings picker shows: the viewer's owned
+ * repositories supplied by the dashboard source merged with any repo that
+ * appears in their PR state. Repos with at least one matching PR get
  * `prCount` set to that count; owned repos without open PRs get `prCount: 0`.
  * Output is sorted alphabetically by `owner/name` so the frontend can render
  * directly without re-sorting.
  *
- * @param ownedRepos - Repos returned by GitHub's `viewer.repositories`
- *   (owner-affiliation only). Provides the baseline universe.
+ * @param ownedRepos - Viewer-owned repos supplied by the dashboard source.
+ *   Provides the baseline universe.
  * @param prs - Pre-filter pull requests. Any repo here that isn't in
  *   `ownedRepos` is added (e.g., review-requested on a repo the viewer
  *   doesn't own).

@@ -13,6 +13,7 @@ import { usePullRequests } from '@/hooks/use-pull-requests'
 import { useSettings } from '@/hooks/use-settings'
 import { useTheme } from '@/hooks/use-theme'
 import { ApiError } from '@/lib/api-error'
+import { countDisplayItemPrs } from '@/lib/dashboard-display/dashboard-display'
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -47,8 +48,7 @@ function Home() {
 
   const badgeCount = fatalAuthError
     ? 0
-    : (query.data?.buckets.review.length ?? 0) +
-      (query.data?.buckets.attention.length ?? 0)
+    : countBucketPrs(query.data?.buckets.review) + countBucketPrs(query.data?.buckets.attention)
   useNotificationBadge(badgeCount)
 
   // Gate auth-derived data at render time so a transient query.data preserved
@@ -131,6 +131,10 @@ function Home() {
       )}
     </>
   )
+}
+
+function countBucketPrs(items: Parameters<typeof countDisplayItemPrs>[0][] | undefined): number {
+  return items?.reduce((count, item) => count + countDisplayItemPrs(item), 0) ?? 0
 }
 
 function OnboardingEmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {

@@ -1,12 +1,11 @@
 import { type Context, Hono } from 'hono'
-import { getViewer } from '../github/get-viewer'
-import { UnauthorizedError, withAuth } from '../middleware/with-auth'
+import { getAuthenticatedViewer, UnauthorizedError } from '../auth/session'
 
 export const user = new Hono()
 
 user.get('/user', async (c) => {
   try {
-    const { login } = await withAuth(c, token => getViewer(token))
+    const { login } = await getAuthenticatedViewer(c)
     return c.json({ login })
   }
   catch (err) {
@@ -21,14 +20,9 @@ function mapError(c: Context, err: unknown) {
       401,
     )
   }
-  if (err && typeof err === 'object' && 'status' in err && err.status === 401) {
-    return c.json(
-      { error: { code: 'BAD_CREDENTIALS', message: 'GitHub rejected the session' } },
-      401,
-    )
-  }
+  console.error('user handler error:', err)
   return c.json(
-    { error: { code: 'UPSTREAM_ERROR', message: 'Failed to reach GitHub' } },
-    502,
+    { error: { code: 'UPSTREAM_ERROR', message: 'Failed to load user' } },
+    500,
   )
 }

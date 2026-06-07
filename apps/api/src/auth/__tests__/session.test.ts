@@ -6,9 +6,9 @@ import {
   beginGitHubAppSignIn,
   completeGitHubAppCallback,
   createPkceChallenge,
+  getAuthenticatedViewer,
   hashSessionId,
   sessionExpiresAt,
-  withAuth,
 } from '../session'
 
 const NOW = new Date('2026-05-31T12:00:00.000Z')
@@ -120,8 +120,7 @@ describe('completeGitHubAppCallback', () => {
 
     const res = await app.request('/callback?code=code-1&state=state-1&installation_id=42', {
       headers: {
-        cookie:
-          'prq_oauth_state=state-1; prq_oauth_verifier=verifier-1; prq_access_token=legacy-1',
+        cookie: 'prq_oauth_state=state-1; prq_oauth_verifier=verifier-1',
       },
     })
 
@@ -150,8 +149,6 @@ describe('completeGitHubAppCallback', () => {
 
     const cookie = res.headers.get('set-cookie') ?? ''
     expect(cookie).toContain('prq_session=session-plain')
-    expect(cookie).toContain('prq_access_token=')
-    expect(cookie).toContain('Max-Age=0')
   })
 
   it('rejects a callback installation id the user token cannot access', async () => {
@@ -209,12 +206,13 @@ describe('completeGitHubAppCallback', () => {
   })
 })
 
-describe('withAuth', () => {
-  it('refreshes an expiring DB-backed session before invoking the caller', async () => {
+describe('getAuthenticatedViewer', () => {
+  it('refreshes an expiring DB-backed session before returning the viewer', async () => {
     const store = makeStore({
       findSession: vi.fn(async () => ({
         sessionIdHash: hashSessionId('session-plain'),
         githubUserId: '1001',
+        githubUserLogin: 'haji',
         accessToken: 'old-access',
         refreshToken: 'refresh-1',
         accessTokenExpiresAt: new Date('2026-05-31T12:00:30.000Z'),
@@ -228,17 +226,15 @@ describe('withAuth', () => {
       refresh_token: 'refresh-2',
       refresh_token_expires_in: 180 * 24 * 60 * 60,
     }))
-    const fn = vi.fn(async () => 'ok')
-
     const app = new Hono()
     app.get('/probe', async (c) => {
-      const value = await withAuth(c, fn, {
+      const viewer = await getAuthenticatedViewer(c, {
         config: CONFIG,
         store,
         fetch: fetchMock,
         now: () => NOW,
       })
-      return c.json({ value })
+      return c.json({ viewer })
     })
 
     const res = await app.request('/probe', {
@@ -246,8 +242,7 @@ describe('withAuth', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ value: 'ok' })
-    expect(fn).toHaveBeenCalledWith('new-access')
+    expect(await res.json()).toEqual({ viewer: { githubId: '1001', login: 'haji' } })
     expect(store.updateSessionTokens).toHaveBeenCalledWith(hashSessionId('session-plain'), {
       accessToken: 'new-access',
       refreshToken: 'refresh-2',
@@ -258,5 +253,53 @@ describe('withAuth', () => {
 
     const cookie = res.headers.get('set-cookie') ?? ''
     expect(cookie).toContain('prq_session=session-plain')
+  })
+
+  it('resolves stored viewer identity without a GitHub request', async () => {
+    const store = makeStore({
+      findSession: vi.fn(async () => ({
+        sessionIdHash: hashSessionId('session-plain'),
+        githubUserId: '1001',
+        githubUserLogin: 'haji',
+        accessToken: 'access-1',
+        refreshToken: null,
+        accessTokenExpiresAt: null,
+        refreshTokenExpiresAt: null,
+        expiresAt: new Date('2026-06-30T12:00:00.000Z'),
+      })),
+    })
+    const fetchMock = vi.fn()
+    const app = new Hono()
+    app.get('/viewer', async (c) => c.json(await getAuthenticatedViewer(c, {
+      store,
+      fetch: fetchMock,
+      now: () => NOW,
+    })))
+
+    const res = await app.request('/viewer', {
+      headers: { cookie: 'prq_session=session-plain' },
+    })
+
+    expect(await res.json()).toEqual({ githubId: '1001', login: 'haji' })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects the removed legacy access-token cookie', async () => {
+    const app = new Hono()
+    app.get('/viewer', async (c) => {
+      try {
+        return c.json(await getAuthenticatedViewer(c, { store: makeStore() }))
+      }
+      catch (error) {
+        return c.json({ name: error instanceof Error ? error.name : 'unknown' }, 401)
+      }
+    })
+
+    const res = await app.request('/viewer', {
+      headers: { cookie: 'prq_access_token=legacy-access' },
+    })
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ name: 'UnauthorizedError' })
   })
 })

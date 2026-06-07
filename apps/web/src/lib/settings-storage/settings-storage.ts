@@ -5,7 +5,7 @@ const PREFIX = 'prq:settings:'
 
 /**
  * Build the localStorage key for a given viewer login. Namespacing by login
- * means switching the active PAT (current user) loads that account's
+ * means switching the active account loads that account's
  * settings, not the previous account's.
  *
  * @param viewerLogin - GitHub login of the authenticated viewer.

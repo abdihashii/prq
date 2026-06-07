@@ -1,8 +1,8 @@
-import type { BucketedResponse, TrackedRepos } from '@prq/shared'
-import { ApiErrorSchema, BucketedResponseSchema } from '@prq/shared'
+import type { DashboardResponse, TrackedRepos } from '@prq/shared'
+import { ApiErrorSchema, DashboardResponseSchema } from '@prq/shared'
 import { ApiError } from '@/lib/api-error'
 
-export async function fetchPullRequests(trackedRepos: TrackedRepos): Promise<BucketedResponse> {
+export async function fetchPullRequests(trackedRepos: TrackedRepos): Promise<DashboardResponse> {
   const params = new URLSearchParams()
   if (trackedRepos.length > 0) params.set('repos', trackedRepos.join(','))
   const qs = params.toString()
@@ -16,5 +16,5 @@ export async function fetchPullRequests(trackedRepos: TrackedRepos): Promise<Buc
     throw new Error(`HTTP ${response.status}`)
   }
   const data = await response.json()
-  return BucketedResponseSchema.parse(data)
+  return DashboardResponseSchema.parse(data)
 }

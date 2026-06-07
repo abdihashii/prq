@@ -15,7 +15,7 @@ type BucketInput = Pick<
 >
 
 export function assignBucket(pr: BucketInput, viewerLogin: string): Bucket | null {
-  const isMine = pr.author?.login === viewerLogin
+  const isMine = pr.author?.login.toLowerCase() === viewerLogin.toLowerCase()
 
   if (isMine && pr.isDraft) return 'drafts'
 

@@ -1,4 +1,4 @@
-import type { BucketedResponse } from '@prq/shared'
+import type { DashboardResponse } from '@prq/shared'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '@/lib/api-error'
 import { fetchPullRequests } from '../pull-requests'
@@ -10,7 +10,7 @@ function jsonResponse(status: number, body: unknown): Response {
   })
 }
 
-const validBucketedResponse: BucketedResponse = {
+const validDashboardResponse: DashboardResponse = {
   buckets: { review: [], attention: [], ready: [], waiting: [], drafts: [] },
   viewerLogin: 'octocat',
   syncedAt: '2026-05-03T12:00:00.000Z',
@@ -23,16 +23,16 @@ describe('fetchPullRequests', () => {
     vi.unstubAllGlobals()
   })
 
-  it('resolves with parsed BucketedResponse on 200 + valid body', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, validBucketedResponse)))
+  it('resolves with parsed DashboardResponse on 200 + valid body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, validDashboardResponse)))
 
     const result = await fetchPullRequests([])
 
-    expect(result).toEqual(validBucketedResponse)
+    expect(result).toEqual(validDashboardResponse)
   })
 
   it('fetches /api/prs without query string when trackedRepos is empty', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validBucketedResponse))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validDashboardResponse))
     vi.stubGlobal('fetch', fetchMock)
 
     await fetchPullRequests([])
@@ -41,7 +41,7 @@ describe('fetchPullRequests', () => {
   })
 
   it('appends ?repos= with comma-joined slugs when trackedRepos is non-empty', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validBucketedResponse))
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validDashboardResponse))
     vi.stubGlobal('fetch', fetchMock)
 
     await fetchPullRequests(['vercel/next.js', 'facebook/react'])
@@ -55,14 +55,14 @@ describe('fetchPullRequests', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        jsonResponse(401, { error: { code: 'BAD_CREDENTIALS', message: 'GitHub PAT was rejected' } }),
+        jsonResponse(401, { error: { code: 'BAD_CREDENTIALS', message: 'Session was rejected' } }),
       ),
     )
 
     await expect(fetchPullRequests([])).rejects.toMatchObject({
       name: 'ApiError',
       code: 'BAD_CREDENTIALS',
-      message: 'GitHub PAT was rejected',
+      message: 'Session was rejected',
     })
   })
 
@@ -87,11 +87,11 @@ describe('fetchPullRequests', () => {
     expect(error.resetAt).toBe('2026-05-03T13:00:00.000Z')
   })
 
-  it('throws ApiError with code UPSTREAM_ERROR on 502', async () => {
+  it('throws ApiError with code UPSTREAM_ERROR on 500', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        jsonResponse(502, { error: { code: 'UPSTREAM_ERROR', message: 'GraphQL boom' } }),
+        jsonResponse(500, { error: { code: 'UPSTREAM_ERROR', message: 'Database unavailable' } }),
       ),
     )
 

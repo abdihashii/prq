@@ -33,6 +33,10 @@ const make = (over: Partial<BucketInput> = {}): BucketInput => ({
 })
 
 describe('assignBucket', () => {
+  it('matches GitHub logins case-insensitively', () => {
+    expect(assignBucket(make({ author: { login: 'HAJI' } }), VIEWER)).toBe('waiting')
+  })
+
   describe('drafts', () => {
     it('routes my draft PRs to drafts', () => {
       expect(assignBucket(make({ isDraft: true }), VIEWER)).toBe('drafts')

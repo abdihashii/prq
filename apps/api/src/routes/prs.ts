@@ -1,18 +1,10 @@
-import { GraphqlResponseError } from '@octokit/graphql'
 import { type Context, Hono } from 'hono'
-import {
-  type Bucket,
-  BucketedResponseSchema,
-  mergeTrackableRepos,
-  parseRepoList,
-  type PullRequest,
-} from '@prq/shared'
-import { fetchPullRequests } from '../github/client'
-import { RawResponseSchema } from '../github/schema'
-import { transform } from '../github/transform'
-import { UnauthorizedError, withAuth } from '../middleware/with-auth'
+import { parseRepoList } from '@prq/shared'
+import { getAuthenticatedViewer, UnauthorizedError } from '../auth/session'
+import { createDashboardService } from '../dashboard/dashboard'
 
 export const prs = new Hono()
+const dashboard = createDashboardService()
 
 prs.get('/prs', async (c) => {
   try {
@@ -32,30 +24,10 @@ prs.get('/prs', async (c) => {
     }
     const allowSet = new Set(parseRepoList(normalized))
 
-    const raw = await withAuth(c, token => fetchPullRequests(token))
-    const validated = RawResponseSchema.parse(raw)
-    const { viewerLogin, rateLimit, pullRequests, ownedRepos } = transform(validated)
-
-    const trackableRepos = mergeTrackableRepos(ownedRepos, pullRequests)
-    const filtered = pullRequests.filter(pr =>
-      allowSet.has(`${pr.repository.owner}/${pr.repository.name}`),
-    )
-
-    const buckets: Record<Bucket, PullRequest[]> = {
-      review: [],
-      attention: [],
-      ready: [],
-      waiting: [],
-      drafts: [],
-    }
-    for (const pr of filtered) buckets[pr.bucket].push(pr)
-
-    const body = BucketedResponseSchema.parse({
-      viewerLogin,
-      buckets,
-      syncedAt: new Date().toISOString(),
-      rateLimit,
-      trackableRepos,
+    const viewer = await getAuthenticatedViewer(c)
+    const body = await dashboard.getDashboard({
+      viewer,
+      repositoryAllowlist: allowSet,
     })
     return c.json(body)
   } catch (err) {
@@ -70,49 +42,9 @@ function mapError(c: Context, err: unknown) {
       401,
     )
   }
-  if (err instanceof GraphqlResponseError) {
-    const errors = (err.errors ?? []) as Array<{ type?: string }>
-    const isRateLimited = errors.some((e) => e.type === 'RATE_LIMITED')
-    if (isRateLimited) {
-      const headers = (err.headers ?? {}) as Record<string, string | undefined>
-      const reset = headers['x-ratelimit-reset']
-      const resetAt = reset ? new Date(Number(reset) * 1000).toISOString() : undefined
-      return c.json(
-        { error: { code: 'RATE_LIMITED', message: 'GitHub API rate limit reached', resetAt } },
-        429,
-      )
-    }
-    return c.json({ error: { code: 'UPSTREAM_ERROR', message: err.message } }, 502)
-  }
-
-  if (err && typeof err === 'object' && 'status' in err) {
-    const status = (err as { status: unknown }).status
-    if (status === 401) {
-      return c.json(
-        { error: { code: 'BAD_CREDENTIALS', message: 'GitHub rejected the session' } },
-        401,
-      )
-    }
-    if (status === 403 || status === 429) {
-      const headers = ((err as { response?: { headers?: Record<string, string | undefined> } })
-        .response?.headers ?? {})
-      const retryAfter = headers['retry-after']
-      const reset = headers['x-ratelimit-reset']
-      const resetAt = retryAfter
-        ? new Date(Date.now() + Number(retryAfter) * 1000).toISOString()
-        : reset
-          ? new Date(Number(reset) * 1000).toISOString()
-          : undefined
-      return c.json(
-        { error: { code: 'RATE_LIMITED', message: 'GitHub API rate limit reached', resetAt } },
-        429,
-      )
-    }
-  }
-
   console.error('prs handler error:', err)
   return c.json(
-    { error: { code: 'UPSTREAM_ERROR', message: 'Failed to fetch pull requests' } },
-    502,
+    { error: { code: 'UPSTREAM_ERROR', message: 'Failed to load dashboard' } },
+    500,
   )
 }

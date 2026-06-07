@@ -1,17 +1,16 @@
-import type { BucketedResponse } from '@prq/shared'
+import type { DashboardResponse } from '@prq/shared'
 import { DISPLAY_ORDER } from '@prq/shared'
 import { BucketSection } from '@/components/bucket-section'
 import type { DashboardDisplayBuckets } from '@/lib/dashboard-display/dashboard-display'
-import { toPrDisplayItems } from '@/lib/dashboard-display/dashboard-display'
 
 interface DashboardProps {
-  data: BucketedResponse
+  data: DashboardResponse
   displayBuckets?: Partial<DashboardDisplayBuckets>
 }
 
 export function Dashboard({ data, displayBuckets }: DashboardProps) {
   const buckets = DISPLAY_ORDER.reduce((acc, bucket) => {
-    acc[bucket] = displayBuckets?.[bucket] ?? toPrDisplayItems(data.buckets[bucket])
+    acc[bucket] = displayBuckets?.[bucket] ?? data.buckets[bucket]
     return acc
   }, {} as DashboardDisplayBuckets)
   const isAllEmpty = DISPLAY_ORDER.every((bucket) => buckets[bucket].length === 0)
