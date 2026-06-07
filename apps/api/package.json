@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:webhook-db": "PRQ_WEBHOOK_DB_INTEGRATION=1 vitest run src/github/__tests__/webhook-store.integration.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.0",

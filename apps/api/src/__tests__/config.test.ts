@@ -4,6 +4,7 @@ import {
   LOCAL_WEB_URL,
   missingGitHubAppAuthConfig,
   resolveGitHubAppAuthConfig,
+  resolveGitHubWebhookSecret,
 } from '../config'
 
 describe('resolveGitHubAppAuthConfig', () => {
@@ -47,5 +48,13 @@ describe('resolveGitHubAppAuthConfig', () => {
     expect(() => resolveGitHubAppAuthConfig({
       PRQ_WEB_URL: 'ftp://example.com',
     })).toThrow('PRQ_WEB_URL must use http:// or https://')
+  })
+})
+
+describe('resolveGitHubWebhookSecret', () => {
+  it('is optional at import time and trims explicit config', () => {
+    expect(resolveGitHubWebhookSecret({})).toBe('')
+    expect(resolveGitHubWebhookSecret({ PRQ_GITHUB_WEBHOOK_SECRET: ' secret-1 ' }))
+      .toBe('secret-1')
   })
 })
