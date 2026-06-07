@@ -19,6 +19,10 @@ export interface GitHubAppAuthConfig {
 
 type Env = Record<string, string | undefined>
 
+export function resolveGitHubWebhookSecret(env: Env = process.env): string {
+  return emptyToUndefined(env['PRQ_GITHUB_WEBHOOK_SECRET']) ?? ''
+}
+
 export function resolveGitHubAppAuthConfig(env: Env = process.env): GitHubAppAuthConfig {
   const clientId = emptyToUndefined(env['PRQ_GITHUB_CLIENT_ID']) ?? ''
   const clientSecret = emptyToUndefined(env['PRQ_GITHUB_CLIENT_SECRET']) ?? ''
@@ -48,6 +52,7 @@ export function missingGitHubAppAuthConfig(config: GitHubAppAuthConfig): string[
 
 export const githubAppAuthConfig = resolveGitHubAppAuthConfig()
 export const githubClientId = githubAppAuthConfig.clientId
+export const githubWebhookSecret = resolveGitHubWebhookSecret()
 
 function emptyToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim()

@@ -23,7 +23,10 @@ The product direction is locked in [docs/spec.md](docs/spec.md). The setup below
   4. Enable **Redirect on update**.
   5. Keep **Request user authorization (OAuth) during installation** disabled.
   6. Grant read-only repository permissions for Checks, Commit statuses, Contents, and Pull requests.
-  7. Copy the **Client ID** and generate a **Client secret**.
+  7. Set **Webhook URL** to your HTTPS tunnel for `http://localhost:3001/api/webhooks/github`.
+  8. Set webhook **Content type** to `application/json` and choose a webhook secret.
+  9. Subscribe to Installation, Installation repositories, Repository, Pull request, and Pull request review events.
+  10. Copy the **Client ID**, generate a **Client secret**, and add the webhook secret to `apps/api/.env`.
 
 ## Setup
 
@@ -75,3 +78,7 @@ packages/
 | `pnpm typecheck` | Run TypeScript across all workspaces   |
 | `pnpm test`      | Run tests across all workspaces        |
 | `pnpm lint`      | Lint                                   |
+
+Run the opt-in Compose-backed webhook persistence test with
+`pnpm --filter @prq/api test:webhook-db`. It automatically provisions and
+migrates the isolated `prq_test` database.
