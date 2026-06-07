@@ -1,8 +1,8 @@
 # PRQ — Product Requirements Document
 
 **Author:** Abdirahman Haji
-**Last updated:** May 27, 2026
-**Status:** Spec locked, design phase pending
+**Last updated:** June 7, 2026
+**Status:** Spec locked, implementation in progress
 
 ---
 

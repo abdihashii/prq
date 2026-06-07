@@ -35,7 +35,7 @@ git clone <your-fork-or-this-repo>.git
 cd prq
 pnpm install
 cp apps/api/.env.example apps/api/.env
-# paste your GitHub App Client ID and Client secret into apps/api/.env
+# paste your GitHub App Client ID, Client secret, and webhook secret into apps/api/.env
 docker compose up -d postgres
 pnpm db:migrate
 ```
@@ -62,7 +62,7 @@ Then open http://localhost:5173 and click **Sign in with GitHub**.
 
 ```
 apps/
-  api/      Hono server that talks to the GitHub GraphQL API
+  api/      Hono server for GitHub App auth, live GraphQL reads, and webhook sync state
   web/      React + Vite dashboard (TanStack Router/Query, Tailwind)
 packages/
   shared/   Zod schemas and types shared between api and web
