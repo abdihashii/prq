@@ -40,7 +40,7 @@ describe('useTokenHealth', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        jsonResponse(401, { error: { code: 'BAD_CREDENTIALS', message: 'No GitHub PAT set' } }),
+        jsonResponse(401, { error: { code: 'BAD_CREDENTIALS', message: 'Not signed in' } }),
       ),
     )
 

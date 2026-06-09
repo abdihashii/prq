@@ -1,61 +1,47 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getViewer } from '../../github/get-viewer'
+import { getAuthenticatedViewer, UnauthorizedError } from '../../auth/session'
 import { user } from '../user'
 
-vi.mock('../../github/get-viewer', () => ({
-  getViewer: vi.fn(),
+vi.mock('../../auth/session', async importOriginal => ({
+  ...await importOriginal<typeof import('../../auth/session')>(),
+  getAuthenticatedViewer: vi.fn(),
 }))
 
-const mockedGetViewer = vi.mocked(getViewer)
-
+const mockedViewer = vi.mocked(getAuthenticatedViewer)
 const makeApp = () => new Hono().route('/api', user)
 
-const WITH_SESSION = {
-  headers: { cookie: 'prq_access_token=test-access' },
-}
-
 beforeEach(() => {
-  mockedGetViewer.mockReset()
+  mockedViewer.mockReset()
 })
 
 describe('GET /api/user', () => {
-  it('valid session + getViewer succeeds → 200 { login }', async () => {
-    mockedGetViewer.mockResolvedValue({ login: 'haji' })
+  it('returns login from the stored database session', async () => {
+    mockedViewer.mockResolvedValue({ githubId: 'U_haji', login: 'haji' })
 
-    const res = await makeApp().request('/api/user', WITH_SESSION)
+    const res = await makeApp().request('/api/user')
+
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ login: 'haji' })
-    expect(mockedGetViewer).toHaveBeenCalledWith('test-access')
   })
 
-  it('no cookie → 401 BAD_CREDENTIALS without hitting GitHub', async () => {
+  it('maps unavailable sessions to 401 BAD_CREDENTIALS', async () => {
+    mockedViewer.mockRejectedValue(new UnauthorizedError('missing'))
+
     const res = await makeApp().request('/api/user')
+
     expect(res.status).toBe(401)
-    const body = await res.json()
-    expect(body.error.code).toBe('BAD_CREDENTIALS')
-    expect(mockedGetViewer).not.toHaveBeenCalled()
+    expect(await res.json()).toMatchObject({ error: { code: 'BAD_CREDENTIALS' } })
   })
 
-  it('GitHub 401 → 401 BAD_CREDENTIALS and clears the cookie', async () => {
-    mockedGetViewer.mockRejectedValue(Object.assign(new Error('rejected'), { status: 401 }))
+  it('maps unexpected stored-user failures without leaking details', async () => {
+    mockedViewer.mockRejectedValue(new Error('database details'))
 
-    const res = await makeApp().request('/api/user', WITH_SESSION)
-    expect(res.status).toBe(401)
-    const body = await res.json()
-    expect(body.error.code).toBe('BAD_CREDENTIALS')
+    const res = await makeApp().request('/api/user')
 
-    const cookie = res.headers.get('set-cookie') ?? ''
-    expect(cookie).toContain('prq_access_token=')
-    expect(cookie).toContain('Max-Age=0')
-  })
-
-  it('GitHub 500 → 502 UPSTREAM_ERROR', async () => {
-    mockedGetViewer.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }))
-
-    const res = await makeApp().request('/api/user', WITH_SESSION)
-    expect(res.status).toBe(502)
-    const body = await res.json()
-    expect(body.error.code).toBe('UPSTREAM_ERROR')
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({
+      error: { code: 'UPSTREAM_ERROR', message: 'Failed to load user' },
+    })
   })
 })

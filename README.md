@@ -62,11 +62,21 @@ Then open http://localhost:5173 and click **Sign in with GitHub**.
 
 ```
 apps/
-  api/      Hono server for GitHub App auth, live GraphQL reads, and webhook sync state
+  api/      Hono server for GitHub App auth, stored dashboard reads, and webhook sync state
   web/      React + Vite dashboard (TanStack Router/Query, Tailwind)
 packages/
   shared/   Zod schemas and types shared between api and web
 ```
+
+## Dashboard state policy
+
+The dashboard reads only from Postgres state written by GitHub App webhooks. It
+shows open PRs attached to active installations and never falls back to a live
+GitHub dashboard query. Stored values remain eligible until a webhook changes
+them; fields unavailable from webhook state use deterministic conservative
+defaults rather than failing or hiding the dashboard. If no matching stored
+rows exist, the API returns valid empty buckets; absent review-request and
+review rows mean the viewer is not requested and has not reviewed.
 
 ## Scripts
 

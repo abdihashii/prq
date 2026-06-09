@@ -1,194 +1,115 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fetchPullRequests } from '../../github/client'
-import { makeRawPr, makeRawResponse } from '../../github/__tests__/fixtures'
+import { clearCurrentAuthSession, getAuthenticatedPrincipal } from '../../auth/session'
 import { prs } from '../prs'
 
-vi.mock('../../github/client', () => ({
-  fetchPullRequests: vi.fn(),
+const { getDashboard } = vi.hoisted(() => ({ getDashboard: vi.fn() }))
+
+vi.mock('../../auth/session', async importOriginal => ({
+  ...await importOriginal<typeof import('../../auth/session')>(),
+  clearCurrentAuthSession: vi.fn(),
+  getAuthenticatedPrincipal: vi.fn(),
+}))
+vi.mock('../../dashboard/dashboard', () => ({
+  createDashboardFacade: () => ({ getDashboard }),
 }))
 
-const mockedFetch = vi.mocked(fetchPullRequests)
+const mockedPrincipal = vi.mocked(getAuthenticatedPrincipal)
+const mockedClearSession = vi.mocked(clearCurrentAuthSession)
 
-const rawForRepos = (entries: Array<{ owner: string, name: string, id: string }>) =>
-  makeRawResponse({
-    authored: entries.map(({ owner, name, id }) =>
-      makeRawPr({
-        id,
-        repository: { name, owner: { login: owner } },
-      }),
-    ),
-  })
+const response = {
+  buckets: { review: [], attention: [], ready: [], waiting: [], drafts: [] },
+  viewerLogin: 'haji',
+  syncedAt: '2026-06-07T12:00:00.000Z',
+  rateLimit: {
+    cost: 0,
+    remaining: 0,
+    resetAt: '2026-06-07T12:00:00.000Z',
+  },
+  trackableRepos: [],
+}
 
 const makeApp = () => new Hono().route('/api', prs)
 
-const WITH_COOKIE = {
-  headers: { cookie: 'prq_access_token=test-access' },
-}
-
 beforeEach(() => {
-  mockedFetch.mockReset()
+  mockedPrincipal.mockReset()
+  mockedPrincipal.mockResolvedValue({
+    githubId: 'U_haji',
+    login: 'haji',
+    accessToken: 'secret-token',
+  })
+  mockedClearSession.mockReset()
+  mockedClearSession.mockResolvedValue()
+  getDashboard.mockReset()
+  getDashboard.mockResolvedValue(response)
 })
 
 describe('GET /api/prs', () => {
-  it('empty repos param → no PRs in buckets, full trackableRepos returned', async () => {
-    mockedFetch.mockResolvedValue(rawForRepos([
-      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
-      { owner: 'facebook', name: 'react', id: 'PR_b' },
-    ]))
+  it('authenticates the principal and delegates the parsed repo allowlist', async () => {
+    const res = await makeApp().request('/api/prs?repos=garbage,vercel%2Fnext.js')
 
-    const res = await makeApp().request('/api/prs', WITH_COOKIE)
     expect(res.status).toBe(200)
-
-    const body = await res.json()
-    expect(body.buckets.review).toEqual([])
-    expect(body.buckets.attention).toEqual([])
-    expect(body.buckets.ready).toEqual([])
-    expect(body.buckets.waiting).toEqual([])
-    expect(body.buckets.drafts).toEqual([])
-    expect(body.trackableRepos).toEqual([
-      { owner: 'facebook', name: 'react', prCount: 1 },
-      { owner: 'vercel', name: 'next.js', prCount: 1 },
-    ])
+    expect(await res.json()).toEqual(response)
+    expect(getDashboard).toHaveBeenCalledWith({
+      principal: { githubId: 'U_haji', login: 'haji', accessToken: 'secret-token' },
+      repositoryAllowlist: new Set(['vercel/next.js']),
+    })
   })
 
-  it('allowlist filter keeps only matching PRs; trackableRepos remains pre-filter', async () => {
-    mockedFetch.mockResolvedValue(rawForRepos([
-      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
-      { owner: 'facebook', name: 'react', id: 'PR_b' },
-    ]))
+  it('accepts a double-encoded slash and silently drops malformed percent escapes', async () => {
+    await makeApp().request('/api/prs?repos=vercel%252Fnext.js')
+    expect(getDashboard).toHaveBeenLastCalledWith(expect.objectContaining({
+      repositoryAllowlist: new Set(['vercel/next.js']),
+    }))
 
-    const res = await makeApp().request('/api/prs?repos=vercel%2Fnext.js', WITH_COOKIE)
-    expect(res.status).toBe(200)
-
-    const body = await res.json()
-    expect(body.buckets.waiting).toHaveLength(1)
-    expect(body.buckets.waiting[0].repository).toEqual({ owner: 'vercel', name: 'next.js' })
-    expect(body.trackableRepos).toHaveLength(2)
+    await makeApp().request('/api/prs?repos=foo%25')
+    expect(getDashboard).toHaveBeenLastCalledWith(expect.objectContaining({
+      repositoryAllowlist: new Set(),
+    }))
   })
 
-  it('accepts double-encoded slash (server-side defensive decode)', async () => {
-    mockedFetch.mockResolvedValue(rawForRepos([
-      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
-    ]))
+  it('returns 401 BAD_CREDENTIALS when the database session is unavailable', async () => {
+    const { UnauthorizedError } = await import('../../auth/session')
+    mockedPrincipal.mockRejectedValue(new UnauthorizedError('missing'))
 
-    const res = await makeApp().request(
-      '/api/prs?repos=vercel%252Fnext.js',
-      WITH_COOKIE,
-    )
-    expect(res.status).toBe(200)
-
-    const body = await res.json()
-    expect(body.buckets.waiting).toHaveLength(1)
-  })
-
-  it('returns 200 with empty buckets when ?repos= contains a malformed % escape', async () => {
-    mockedFetch.mockResolvedValue(rawForRepos([
-      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
-    ]))
-
-    // decodeURIComponent('foo%') throws URIError; the route must not 502.
-    const res = await makeApp().request('/api/prs?repos=foo%25', WITH_COOKIE)
-    // Note: the URL-level %25 = literal `%` character. After Hono decodes
-    // once, the route sees `foo%` which decodeURIComponent would throw on.
-    // The try/catch keeps the request alive; allowSet ends up empty.
-    expect(res.status).toBe(200)
-
-    const body = await res.json()
-    expect(body.buckets.waiting).toEqual([])
-    expect(body.buckets.review).toEqual([])
-    expect(body.buckets.attention).toEqual([])
-    expect(body.buckets.ready).toEqual([])
-    expect(body.buckets.drafts).toEqual([])
-  })
-
-  it('malformed repos entries are silently dropped (never 400)', async () => {
-    mockedFetch.mockResolvedValue(rawForRepos([
-      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
-    ]))
-
-    const res = await makeApp().request(
-      '/api/prs?repos=garbage,vercel%2Fnext.js,too%2Fmany%2Fslashes',
-      WITH_COOKIE,
-    )
-    expect(res.status).toBe(200)
-
-    const body = await res.json()
-    expect(body.buckets.waiting).toHaveLength(1)
-    expect(body.buckets.waiting[0].repository).toEqual({ owner: 'vercel', name: 'next.js' })
-  })
-
-  it('trackableRepos aggregates prCount across same-repo PRs', async () => {
-    mockedFetch.mockResolvedValue(rawForRepos([
-      { owner: 'vercel', name: 'next.js', id: 'PR_a' },
-      { owner: 'vercel', name: 'next.js', id: 'PR_b' },
-      { owner: 'facebook', name: 'react', id: 'PR_c' },
-    ]))
-
-    const res = await makeApp().request('/api/prs', WITH_COOKIE)
-    const body = await res.json()
-
-    expect(body.trackableRepos).toEqual([
-      { owner: 'facebook', name: 'react', prCount: 1 },
-      { owner: 'vercel', name: 'next.js', prCount: 2 },
-    ])
-  })
-
-  it('trackableRepos includes owned repos with prCount: 0 (no PRs)', async () => {
-    mockedFetch.mockResolvedValue(
-      makeRawResponse({
-        ownedRepos: [
-          { owner: 'haji', name: 'dotfiles' },
-          { owner: 'haji', name: 'salahtimes' },
-        ],
-      }),
-    )
-
-    const res = await makeApp().request('/api/prs', WITH_COOKIE)
-    const body = await res.json()
-
-    expect(body.trackableRepos).toEqual([
-      { owner: 'haji', name: 'dotfiles', prCount: 0 },
-      { owner: 'haji', name: 'salahtimes', prCount: 0 },
-    ])
-  })
-
-  it('trackableRepos merges owned repos with PR-derived repos', async () => {
-    mockedFetch.mockResolvedValue(
-      makeRawResponse({
-        ownedRepos: [
-          { owner: 'haji', name: 'dotfiles' },
-          { owner: 'haji', name: 'salahtimes' },
-        ],
-        authored: [
-          makeRawPr({
-            id: 'PR_owned',
-            repository: { name: 'salahtimes', owner: { login: 'haji' } },
-          }),
-          makeRawPr({
-            id: 'PR_external',
-            repository: { name: 'next.js', owner: { login: 'vercel' } },
-          }),
-        ],
-      }),
-    )
-
-    const res = await makeApp().request('/api/prs', WITH_COOKIE)
-    const body = await res.json()
-
-    expect(body.trackableRepos).toEqual([
-      { owner: 'haji', name: 'dotfiles', prCount: 0 },
-      { owner: 'haji', name: 'salahtimes', prCount: 1 },
-      { owner: 'vercel', name: 'next.js', prCount: 1 },
-    ])
-  })
-
-  it('no session cookies → 401 BAD_CREDENTIALS without hitting GitHub', async () => {
     const res = await makeApp().request('/api/prs')
-    expect(res.status).toBe(401)
 
-    const body = await res.json()
-    expect(body.error.code).toBe('BAD_CREDENTIALS')
-    expect(mockedFetch).not.toHaveBeenCalled()
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: { code: 'BAD_CREDENTIALS' } })
+    expect(getDashboard).not.toHaveBeenCalled()
+  })
+
+  it('invalidates rejected GitHub credentials and clears the session cookie', async () => {
+    const { DashboardBadCredentialsError } = await import('../../dashboard/errors')
+    getDashboard.mockRejectedValue(new DashboardBadCredentialsError())
+
+    const res = await makeApp().request('/api/prs')
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: { code: 'BAD_CREDENTIALS' } })
+    expect(mockedClearSession).toHaveBeenCalledOnce()
+  })
+
+  it('maps GitHub rate limits without leaking details', async () => {
+    const { DashboardRateLimitedError } = await import('../../dashboard/errors')
+    getDashboard.mockRejectedValue(new DashboardRateLimitedError())
+
+    const res = await makeApp().request('/api/prs')
+
+    expect(res.status).toBe(429)
+    expect(await res.json()).toEqual({
+      error: { code: 'RATE_LIMITED', message: 'GitHub rate limit exceeded' },
+    })
+  })
+
+  it('maps unexpected dashboard failures without leaking details', async () => {
+    getDashboard.mockRejectedValue(new Error('database connection details'))
+
+    const res = await makeApp().request('/api/prs')
+
+    expect(res.status).toBe(502)
+    expect(await res.json()).toEqual({
+      error: { code: 'UPSTREAM_ERROR', message: 'Failed to load dashboard' },
+    })
   })
 })

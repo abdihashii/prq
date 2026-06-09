@@ -127,11 +127,32 @@ export const repositories = pgTable('repositories', {
   defaultBranch: text('default_branch'),
   private: boolean('private').notNull().default(false),
   archived: boolean('archived').notNull().default(false),
+  dashboardReconciledAt: nullableTimestamp('dashboard_reconciled_at'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, table => [
   index('repositories_installation_idx').on(table.githubInstallationId),
   uniqueIndex('repositories_owner_name_unique').on(table.owner, table.name),
+])
+
+export const githubUserRepositories = pgTable('github_user_repositories', {
+  githubUserId: text('github_user_id').notNull().references(
+    () => githubUsers.githubId,
+    { onDelete: 'cascade' },
+  ),
+  githubRepositoryId: text('github_repository_id').notNull().references(
+    () => repositories.githubRepositoryId,
+    { onDelete: 'cascade' },
+  ),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, table => [
+  primaryKey({
+    columns: [table.githubUserId, table.githubRepositoryId],
+    name: 'github_user_repositories_pk',
+  }),
+  index('github_user_repositories_user_idx').on(table.githubUserId),
+  index('github_user_repositories_repository_idx').on(table.githubRepositoryId),
 ])
 
 export const pullRequests = pgTable('pull_requests', {

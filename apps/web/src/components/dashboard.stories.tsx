@@ -25,7 +25,7 @@ const meta: Meta<typeof Dashboard> = {
     docs: {
       description: {
         component:
-          'Top-level dashboard composite. Renders 5 `BucketSection`s in spec §3 display order (Review → Attention → Ready → Waiting → Drafts). Collapses to "Nothing in flight." when every bucket is empty. Stack stories pass fixture-only display items so shared API types remain unchanged.',
+          'Top-level dashboard composite. Renders the shared nested dashboard response in display order (Review → Attention → Ready → Waiting → Drafts). Collapses to "Nothing in flight." when every bucket is empty.',
       },
     },
   },

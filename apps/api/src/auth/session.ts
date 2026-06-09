@@ -17,7 +17,6 @@ const GITHUB_USER_URL = 'https://api.github.com/user'
 const GITHUB_USER_INSTALLATIONS_URL = 'https://api.github.com/user/installations'
 
 const SESSION_COOKIE = 'prq_session'
-const LEGACY_ACCESS_TOKEN_COOKIE = 'prq_access_token'
 const OAUTH_STATE_COOKIE = 'prq_oauth_state'
 const OAUTH_VERIFIER_COOKIE = 'prq_oauth_verifier'
 
@@ -25,7 +24,6 @@ const API_COOKIE_PATH = '/api'
 const OAUTH_COOKIE_PATH = '/api/auth/github'
 const OAUTH_COOKIE_MAX_AGE_SECONDS = 10 * 60
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
-const LEGACY_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400
 const ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 60
 
 const GitHubIdSchema = z.union([z.string(), z.number().int()]).transform(String)
@@ -76,6 +74,7 @@ export interface GitHubInstallationRecord {
 export interface StoredAuthSession {
   sessionIdHash: string
   githubUserId: string
+  githubUserLogin: string
   accessToken: string
   refreshToken: string | null
   accessTokenExpiresAt: Date | null
@@ -83,7 +82,7 @@ export interface StoredAuthSession {
   expiresAt: Date
 }
 
-export type NewAuthSession = StoredAuthSession
+export type NewAuthSession = Omit<StoredAuthSession, 'githubUserLogin'>
 
 export interface RefreshedAuthSessionTokens {
   accessToken: string
@@ -116,10 +115,13 @@ export interface AuthDependencies {
   createSessionId?: () => string
 }
 
-interface ResolvedAuthToken {
-  kind: 'database' | 'legacy'
+export interface AuthenticatedPrincipal extends AuthenticatedViewer {
   accessToken: string
-  sessionIdHash?: string
+}
+
+export interface AuthenticatedViewer {
+  githubId: string
+  login: string
 }
 
 interface TokenSet {
@@ -224,7 +226,6 @@ export async function completeGitHubAppCallback(
   }, now)
 
   setDatabaseSessionCookie(c, sessionId, tokenSet.expiresAt, now)
-  clearLegacyAccessTokenCookie(c)
 
   return c.redirect(buildWebRedirect(config.webUrl), 302)
 }
@@ -286,20 +287,6 @@ export async function completeGitHubAppSetup(
   }
 }
 
-export function setLegacyAccessTokenCookie(c: Context, accessToken: string): void {
-  setCookie(c, LEGACY_ACCESS_TOKEN_COOKIE, accessToken, {
-    httpOnly: true,
-    sameSite: 'Strict',
-    path: API_COOKIE_PATH,
-    maxAge: LEGACY_COOKIE_MAX_AGE_SECONDS,
-    secure: isProduction(),
-  })
-}
-
-export function clearLegacyAccessTokenCookie(c: Context): void {
-  deleteCookie(c, LEGACY_ACCESS_TOKEN_COOKIE, { path: API_COOKIE_PATH })
-}
-
 export async function clearCurrentAuthSession(
   c: Context,
   deps: AuthDependencies = {},
@@ -315,28 +302,23 @@ export async function clearCurrentAuthSession(
   }
   finally {
     clearDatabaseSessionCookie(c)
-    clearLegacyAccessTokenCookie(c)
     clearOAuthCookies(c)
   }
 }
 
-export async function withAuth<T>(
+export async function getAuthenticatedViewer(
   c: Context,
-  fn: (accessToken: string) => Promise<T>,
   deps: AuthDependencies = {},
-): Promise<T> {
-  const resolved = await resolveAuthToken(c, deps)
+): Promise<AuthenticatedViewer> {
+  const { accessToken: _accessToken, ...viewer } = await getAuthenticatedPrincipal(c, deps)
+  return viewer
+}
 
-  try {
-    return await fn(resolved.accessToken)
-  }
-  catch (err) {
-    if (is401(err)) {
-      await clearResolvedAuthToken(c, resolved, deps)
-      throw new UnauthorizedError('Access token rejected')
-    }
-    throw err
-  }
+export async function getAuthenticatedPrincipal(
+  c: Context,
+  deps: AuthDependencies = {},
+): Promise<AuthenticatedPrincipal> {
+  return resolveAuthToken(c, deps)
 }
 
 export function hashSessionId(sessionId: string): string {
@@ -398,6 +380,7 @@ export function createDrizzleAuthStore(db: Database = getDatabase().db): AuthSto
         .select({
           sessionIdHash: githubSessions.sessionIdHash,
           githubUserId: githubSessions.githubUserId,
+          githubUserLogin: githubUsers.login,
           accessToken: githubSessions.accessToken,
           refreshToken: githubSessions.refreshToken,
           accessTokenExpiresAt: githubSessions.accessTokenExpiresAt,
@@ -405,6 +388,7 @@ export function createDrizzleAuthStore(db: Database = getDatabase().db): AuthSto
           expiresAt: githubSessions.expiresAt,
         })
         .from(githubSessions)
+        .innerJoin(githubUsers, eq(githubSessions.githubUserId, githubUsers.githubId))
         .where(eq(githubSessions.sessionIdHash, sessionIdHash))
         .limit(1)
 
@@ -467,30 +451,17 @@ function requireGitHubAppConfig(config: GitHubAppAuthConfig): GitHubAppAuthConfi
 async function resolveAuthToken(
   c: Context,
   deps: AuthDependencies = {},
-): Promise<ResolvedAuthToken> {
+): Promise<AuthenticatedPrincipal> {
   const sessionId = getCookie(c, SESSION_COOKIE)
-  if (sessionId) {
-    try {
-      return await resolveDatabaseAuthToken(c, sessionId, deps)
-    }
-    catch (err) {
-      if (!(err instanceof UnauthorizedError)) throw err
-    }
-  }
-
-  const legacyAccessToken = getCookie(c, LEGACY_ACCESS_TOKEN_COOKIE)
-  if (legacyAccessToken) {
-    return { kind: 'legacy', accessToken: legacyAccessToken }
-  }
-
-  throw new UnauthorizedError('Missing session cookie')
+  if (!sessionId) throw new UnauthorizedError('Missing session cookie')
+  return resolveDatabaseAuthToken(c, sessionId, deps)
 }
 
 async function resolveDatabaseAuthToken(
   c: Context,
   sessionId: string,
   deps: AuthDependencies,
-): Promise<ResolvedAuthToken> {
+): Promise<AuthenticatedPrincipal> {
   const now = currentTime(deps)
   const store = resolveStore(deps)
   const sessionIdHash = hashSessionId(sessionId)
@@ -508,7 +479,11 @@ async function resolveDatabaseAuthToken(
   }
 
   if (!shouldRefreshAccessToken(session, now)) {
-    return { kind: 'database', accessToken: session.accessToken, sessionIdHash }
+    return {
+      accessToken: session.accessToken,
+      githubId: session.githubUserId,
+      login: session.githubUserLogin,
+    }
   }
 
   if (!session.refreshToken || isAtOrBefore(session.refreshTokenExpiresAt, now)) {
@@ -517,30 +492,34 @@ async function resolveDatabaseAuthToken(
     throw new UnauthorizedError('Session token expired')
   }
 
-  const refreshed = await refreshGitHubAppToken({
-    refreshToken: session.refreshToken,
-    config: requireGitHubAppConfig(deps.config ?? githubAppAuthConfig),
-    fetchImpl: deps.fetch ?? fetch,
-    now,
-  })
+  let refreshed: TokenSet
+  try {
+    refreshed = await refreshGitHubAppToken({
+      refreshToken: session.refreshToken,
+      config: requireGitHubAppConfig(deps.config ?? githubAppAuthConfig),
+      fetchImpl: deps.fetch ?? fetch,
+      now,
+    })
+  }
+  catch (error) {
+    if (!isRejectedTokenError(error)) throw error
+    await store.deleteSession(sessionIdHash)
+    clearDatabaseSessionCookie(c)
+    throw new UnauthorizedError('Session token rejected')
+  }
   await store.updateSessionTokens(sessionIdHash, refreshed, now)
   setDatabaseSessionCookie(c, sessionId, refreshed.expiresAt, now)
 
-  return { kind: 'database', accessToken: refreshed.accessToken, sessionIdHash }
+  return {
+    accessToken: refreshed.accessToken,
+    githubId: session.githubUserId,
+    login: session.githubUserLogin,
+  }
 }
 
-async function clearResolvedAuthToken(
-  c: Context,
-  resolved: ResolvedAuthToken,
-  deps: AuthDependencies,
-): Promise<void> {
-  if (resolved.kind === 'database' && resolved.sessionIdHash) {
-    await resolveStore(deps).deleteSession(resolved.sessionIdHash)
-    clearDatabaseSessionCookie(c)
-    return
-  }
-
-  clearLegacyAccessTokenCookie(c)
+function isRejectedTokenError(error: unknown): boolean {
+  if (error === null || typeof error !== 'object' || !('status' in error)) return false
+  return error.status === 400 || error.status === 401
 }
 
 async function syncInstallationsForAccessToken(
@@ -780,15 +759,6 @@ function parseNullableDate(value: string | null | undefined): Date | null {
     throw new Error('GitHub installation suspended_at was not a valid date')
   }
   return date
-}
-
-function is401(err: unknown): boolean {
-  return Boolean(
-    err
-    && typeof err === 'object'
-    && 'status' in err
-    && (err as { status: unknown }).status === 401,
-  )
 }
 
 function isProduction(): boolean {

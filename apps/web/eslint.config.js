@@ -15,6 +15,6 @@ export default [
     },
   },
   {
-    ignores: ['eslint.config.js'],
+    ignores: ['eslint.config.js', '.storybook/**', 'storybook-static/**'],
   },
 ]
