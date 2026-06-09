@@ -74,7 +74,7 @@ export function createDrizzleAutoRetargetStore(
           return finishSkipped(tx, attemptId, target.reason)
         }
 
-        const inspected = await callGitHub(tx, attemptId, () => inspect(target.target))
+        const inspected = await inspectApplying(tx, target.target, inspect, now)
         if (inspected.kind === 'failed') return inspected
         if (inspected.pullRequest.baseRefName === target.target.nextBaseRefName) {
           await finishSucceeded(tx, target.target, inspected.pullRequest, now)
@@ -353,6 +353,22 @@ async function callGitHub(
   }
   catch (error) {
     return finishFailed(db, attemptId, errorMessage(error))
+  }
+}
+
+async function inspectApplying(
+  db: AutoRetargetDb,
+  target: AutoRetargetTarget,
+  inspect: (target: AutoRetargetTarget) => Promise<RemotePullRequest>,
+  now: Date,
+): Promise<{ kind: 'success', pullRequest: RemotePullRequest } | { kind: 'failed', message: string }> {
+  try {
+    return { kind: 'success', pullRequest: await inspect(target) }
+  }
+  catch (error) {
+    const message = errorMessage(error).slice(0, MAX_ERROR_MESSAGE_LENGTH)
+    await recordAmbiguousFailure(db, target.attemptId, message, now)
+    return { kind: 'failed', message }
   }
 }
 

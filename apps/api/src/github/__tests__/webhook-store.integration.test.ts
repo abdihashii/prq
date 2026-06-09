@@ -437,6 +437,7 @@ describe.skipIf(!RUN_INTEGRATION)('Drizzle GitHub webhook store integration', ()
       .mockResolvedValueOnce(remotePullRequest('feature/parent'))
       .mockResolvedValueOnce(remotePullRequest('feature/parent'))
       .mockRejectedValueOnce(new Error('recovery unavailable'))
+      .mockRejectedValueOnce(new Error('retry inspection unavailable'))
       .mockResolvedValueOnce(remotePullRequest('main'))
     vi.mocked(github.retarget).mockRejectedValueOnce(new Error('connection reset after PATCH'))
     const service = createAutoRetargetService({
@@ -454,12 +455,23 @@ describe.skipIf(!RUN_INTEGRATION)('Drizzle GitHub webhook store integration', ()
       { status: 'failed' },
     ])
 
+    await expect(service.retargetMergedParent(retargetArgs()))
+      .rejects.toThrow('retry inspection unavailable')
+    expect(await client.db.select({
+      status: autoRetargetEvents.status,
+    }).from(autoRetargetEvents).orderBy(autoRetargetEvents.id)).toEqual([
+      { status: 'applying' },
+      { status: 'failed' },
+      { status: 'failed' },
+    ])
+
     await expect(service.retargetMergedParent(retargetArgs())).resolves.toBe('succeeded')
     expect(github.retarget).toHaveBeenCalledOnce()
     expect(await client.db.select({
       status: autoRetargetEvents.status,
     }).from(autoRetargetEvents).orderBy(autoRetargetEvents.id)).toEqual([
       { status: 'succeeded' },
+      { status: 'failed' },
       { status: 'failed' },
     ])
   })
