@@ -1,19 +1,21 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getAuthenticatedViewer } from '../../auth/session'
+import { clearCurrentAuthSession, getAuthenticatedPrincipal } from '../../auth/session'
 import { prs } from '../prs'
 
 const { getDashboard } = vi.hoisted(() => ({ getDashboard: vi.fn() }))
 
 vi.mock('../../auth/session', async importOriginal => ({
   ...await importOriginal<typeof import('../../auth/session')>(),
-  getAuthenticatedViewer: vi.fn(),
+  clearCurrentAuthSession: vi.fn(),
+  getAuthenticatedPrincipal: vi.fn(),
 }))
 vi.mock('../../dashboard/dashboard', () => ({
-  createDashboardService: () => ({ getDashboard }),
+  createDashboardFacade: () => ({ getDashboard }),
 }))
 
-const mockedViewer = vi.mocked(getAuthenticatedViewer)
+const mockedPrincipal = vi.mocked(getAuthenticatedPrincipal)
+const mockedClearSession = vi.mocked(clearCurrentAuthSession)
 
 const response = {
   buckets: { review: [], attention: [], ready: [], waiting: [], drafts: [] },
@@ -30,20 +32,26 @@ const response = {
 const makeApp = () => new Hono().route('/api', prs)
 
 beforeEach(() => {
-  mockedViewer.mockReset()
-  mockedViewer.mockResolvedValue({ githubId: 'U_haji', login: 'haji' })
+  mockedPrincipal.mockReset()
+  mockedPrincipal.mockResolvedValue({
+    githubId: 'U_haji',
+    login: 'haji',
+    accessToken: 'secret-token',
+  })
+  mockedClearSession.mockReset()
+  mockedClearSession.mockResolvedValue()
   getDashboard.mockReset()
   getDashboard.mockResolvedValue(response)
 })
 
 describe('GET /api/prs', () => {
-  it('authenticates the stored viewer and delegates the parsed repo allowlist', async () => {
+  it('authenticates the principal and delegates the parsed repo allowlist', async () => {
     const res = await makeApp().request('/api/prs?repos=garbage,vercel%2Fnext.js')
 
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(response)
     expect(getDashboard).toHaveBeenCalledWith({
-      viewer: { githubId: 'U_haji', login: 'haji' },
+      principal: { githubId: 'U_haji', login: 'haji', accessToken: 'secret-token' },
       repositoryAllowlist: new Set(['vercel/next.js']),
     })
   })
@@ -62,7 +70,7 @@ describe('GET /api/prs', () => {
 
   it('returns 401 BAD_CREDENTIALS when the database session is unavailable', async () => {
     const { UnauthorizedError } = await import('../../auth/session')
-    mockedViewer.mockRejectedValue(new UnauthorizedError('missing'))
+    mockedPrincipal.mockRejectedValue(new UnauthorizedError('missing'))
 
     const res = await makeApp().request('/api/prs')
 
@@ -71,12 +79,35 @@ describe('GET /api/prs', () => {
     expect(getDashboard).not.toHaveBeenCalled()
   })
 
+  it('invalidates rejected GitHub credentials and clears the session cookie', async () => {
+    const { DashboardBadCredentialsError } = await import('../../dashboard/errors')
+    getDashboard.mockRejectedValue(new DashboardBadCredentialsError())
+
+    const res = await makeApp().request('/api/prs')
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: { code: 'BAD_CREDENTIALS' } })
+    expect(mockedClearSession).toHaveBeenCalledOnce()
+  })
+
+  it('maps GitHub rate limits without leaking details', async () => {
+    const { DashboardRateLimitedError } = await import('../../dashboard/errors')
+    getDashboard.mockRejectedValue(new DashboardRateLimitedError())
+
+    const res = await makeApp().request('/api/prs')
+
+    expect(res.status).toBe(429)
+    expect(await res.json()).toEqual({
+      error: { code: 'RATE_LIMITED', message: 'GitHub rate limit exceeded' },
+    })
+  })
+
   it('maps unexpected dashboard failures without leaking details', async () => {
     getDashboard.mockRejectedValue(new Error('database connection details'))
 
     const res = await makeApp().request('/api/prs')
 
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(502)
     expect(await res.json()).toEqual({
       error: { code: 'UPSTREAM_ERROR', message: 'Failed to load dashboard' },
     })

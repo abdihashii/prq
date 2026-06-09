@@ -115,9 +115,8 @@ export interface AuthDependencies {
   createSessionId?: () => string
 }
 
-interface ResolvedAuthToken {
+export interface AuthenticatedPrincipal extends AuthenticatedViewer {
   accessToken: string
-  viewer: AuthenticatedViewer
 }
 
 export interface AuthenticatedViewer {
@@ -311,7 +310,15 @@ export async function getAuthenticatedViewer(
   c: Context,
   deps: AuthDependencies = {},
 ): Promise<AuthenticatedViewer> {
-  return (await resolveAuthToken(c, deps)).viewer
+  const { accessToken: _accessToken, ...viewer } = await getAuthenticatedPrincipal(c, deps)
+  return viewer
+}
+
+export async function getAuthenticatedPrincipal(
+  c: Context,
+  deps: AuthDependencies = {},
+): Promise<AuthenticatedPrincipal> {
+  return resolveAuthToken(c, deps)
 }
 
 export function hashSessionId(sessionId: string): string {
@@ -444,7 +451,7 @@ function requireGitHubAppConfig(config: GitHubAppAuthConfig): GitHubAppAuthConfi
 async function resolveAuthToken(
   c: Context,
   deps: AuthDependencies = {},
-): Promise<ResolvedAuthToken> {
+): Promise<AuthenticatedPrincipal> {
   const sessionId = getCookie(c, SESSION_COOKIE)
   if (!sessionId) throw new UnauthorizedError('Missing session cookie')
   return resolveDatabaseAuthToken(c, sessionId, deps)
@@ -454,7 +461,7 @@ async function resolveDatabaseAuthToken(
   c: Context,
   sessionId: string,
   deps: AuthDependencies,
-): Promise<ResolvedAuthToken> {
+): Promise<AuthenticatedPrincipal> {
   const now = currentTime(deps)
   const store = resolveStore(deps)
   const sessionIdHash = hashSessionId(sessionId)
@@ -474,7 +481,8 @@ async function resolveDatabaseAuthToken(
   if (!shouldRefreshAccessToken(session, now)) {
     return {
       accessToken: session.accessToken,
-      viewer: { githubId: session.githubUserId, login: session.githubUserLogin },
+      githubId: session.githubUserId,
+      login: session.githubUserLogin,
     }
   }
 
@@ -484,19 +492,34 @@ async function resolveDatabaseAuthToken(
     throw new UnauthorizedError('Session token expired')
   }
 
-  const refreshed = await refreshGitHubAppToken({
-    refreshToken: session.refreshToken,
-    config: requireGitHubAppConfig(deps.config ?? githubAppAuthConfig),
-    fetchImpl: deps.fetch ?? fetch,
-    now,
-  })
+  let refreshed: TokenSet
+  try {
+    refreshed = await refreshGitHubAppToken({
+      refreshToken: session.refreshToken,
+      config: requireGitHubAppConfig(deps.config ?? githubAppAuthConfig),
+      fetchImpl: deps.fetch ?? fetch,
+      now,
+    })
+  }
+  catch (error) {
+    if (!isRejectedTokenError(error)) throw error
+    await store.deleteSession(sessionIdHash)
+    clearDatabaseSessionCookie(c)
+    throw new UnauthorizedError('Session token rejected')
+  }
   await store.updateSessionTokens(sessionIdHash, refreshed, now)
   setDatabaseSessionCookie(c, sessionId, refreshed.expiresAt, now)
 
   return {
     accessToken: refreshed.accessToken,
-    viewer: { githubId: session.githubUserId, login: session.githubUserLogin },
+    githubId: session.githubUserId,
+    login: session.githubUserLogin,
   }
+}
+
+function isRejectedTokenError(error: unknown): boolean {
+  if (error === null || typeof error !== 'object' || !('status' in error)) return false
+  return error.status === 400 || error.status === 401
 }
 
 async function syncInstallationsForAccessToken(

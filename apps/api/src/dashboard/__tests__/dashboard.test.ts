@@ -1,12 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { DashboardBadCredentialsError, DashboardUpstreamError } from '../errors'
 import {
+  createDashboardFacade,
   createDashboardService,
+  type AuthorizedRepository,
+  type DashboardAuthorization,
+  type DashboardReconciler,
   type DashboardStore,
   type StoredPullRequest,
 } from '../dashboard'
 
 const NOW = new Date('2026-06-07T12:00:00.000Z')
 const VIEWER = { githubId: 'U_viewer', login: 'Haji' }
+const PRINCIPAL = { ...VIEWER, accessToken: 'secret-token' }
 
 function storedPullRequest(overrides: Partial<StoredPullRequest> = {}): StoredPullRequest {
   return {
@@ -178,5 +184,182 @@ describe('database dashboard projection', () => {
       },
       { kind: 'pr', pr: { id: 'PR_solo' } },
     ])
+  })
+})
+
+describe('dashboard facade', () => {
+  const repository = (
+    dashboardReconciledAt: Date | null,
+    overrides: Partial<AuthorizedRepository> = {},
+  ): AuthorizedRepository => ({
+    githubRepositoryId: 'R_one',
+    githubInstallationId: 'I_one',
+    owner: 'acme',
+    name: 'rocket',
+    dashboardReconciledAt,
+    ...overrides,
+  })
+
+  function facade(args: {
+    repositories: AuthorizedRepository[]
+    reconciler?: DashboardReconciler
+    authorization?: DashboardAuthorization
+    logError?: (message: string, error: unknown) => void
+  }) {
+    const store: DashboardStore = {
+      load: vi.fn(async () => ({ ownedRepositories: [], pullRequests: [] })),
+    }
+    return {
+      store,
+      facade: createDashboardFacade({
+        store,
+        authorization: args.authorization ?? {
+          refresh: vi.fn(async () => args.repositories),
+        },
+        reconciler: args.reconciler ?? { reconcile: vi.fn(async () => {}) },
+        now: () => NOW,
+        logError: args.logError,
+      }),
+    }
+  }
+
+  it('requires missing initial reconciliation before projection', async () => {
+    const store: DashboardStore = {
+      load: vi.fn(async () => ({ ownedRepositories: [], pullRequests: [] })),
+    }
+    const reconciler: DashboardReconciler = {
+      reconcile: vi.fn(async () => {
+        throw new Error('GitHub unavailable')
+      }),
+    }
+    const dashboard = createDashboardFacade({
+      store,
+      authorization: { refresh: vi.fn(async () => [repository(null)]) },
+      reconciler,
+      now: () => NOW,
+    })
+
+    await expect(dashboard.getDashboard({
+      principal: PRINCIPAL,
+      repositoryAllowlist: new Set(),
+    })).rejects.toBeInstanceOf(DashboardUpstreamError)
+    expect(store.load).not.toHaveBeenCalled()
+  })
+
+  it('populates a fresh authorized repository before projecting it', async () => {
+    const state = {
+      ownedRepositories: [] as Array<{ owner: string, name: string }>,
+      pullRequests: [] as StoredPullRequest[],
+    }
+    const dashboard = createDashboardFacade({
+      store: { load: vi.fn(async () => state) },
+      authorization: { refresh: vi.fn(async () => [repository(null)]) },
+      reconciler: {
+        reconcile: vi.fn(async () => {
+          state.ownedRepositories.push({ owner: 'acme', name: 'rocket' })
+          state.pullRequests.push(storedPullRequest())
+        }),
+      },
+      now: () => NOW,
+    })
+
+    const response = await dashboard.getDashboard({
+      principal: PRINCIPAL,
+      repositoryAllowlist: new Set(['acme/rocket']),
+    })
+
+    expect(response.buckets.waiting).toMatchObject([
+      { kind: 'pr', pr: { id: 'PR_one' } },
+    ])
+  })
+
+  it('serves prior authorized state when stale reconciliation fails', async () => {
+    const logError = vi.fn()
+    const { facade: dashboard, store } = facade({
+      repositories: [repository(new Date('2026-06-07T10:00:00.000Z'))],
+      reconciler: {
+        reconcile: vi.fn(async () => {
+          throw new DashboardUpstreamError()
+        }),
+      },
+      logError,
+    })
+
+    await expect(dashboard.getDashboard({
+      principal: PRINCIPAL,
+      repositoryAllowlist: new Set(),
+    })).resolves.toMatchObject({ viewerLogin: 'Haji' })
+    expect(store.load).toHaveBeenCalledOnce()
+    expect(logError).toHaveBeenCalledOnce()
+  })
+
+  it('does not reconcile repositories refreshed within the last hour', async () => {
+    const reconciler: DashboardReconciler = { reconcile: vi.fn(async () => {}) }
+    const { facade: dashboard } = facade({
+      repositories: [repository(new Date('2026-06-07T11:30:00.000Z'))],
+      reconciler,
+    })
+
+    await dashboard.getDashboard({ principal: PRINCIPAL, repositoryAllowlist: new Set() })
+
+    expect(reconciler.reconcile).not.toHaveBeenCalled()
+  })
+
+  it('bounds repository reconciliation concurrency at four', async () => {
+    let active = 0
+    let maximum = 0
+    const reconciler: DashboardReconciler = {
+      reconcile: vi.fn(async () => {
+        active += 1
+        maximum = Math.max(maximum, active)
+        await Promise.resolve()
+        active -= 1
+      }),
+    }
+    const { facade: dashboard } = facade({
+      repositories: Array.from({ length: 6 }, (_, index) => repository(null, {
+        githubRepositoryId: `R_${index}`,
+        owner: `org-${index}`,
+      })),
+      reconciler,
+    })
+
+    await dashboard.getDashboard({ principal: PRINCIPAL, repositoryAllowlist: new Set() })
+
+    expect(reconciler.reconcile).toHaveBeenCalledTimes(6)
+    expect(maximum).toBe(4)
+  })
+
+  it('propagates rejected credentials even when prior state exists', async () => {
+    const { facade: dashboard } = facade({
+      repositories: [repository(new Date('2026-06-07T10:00:00.000Z'))],
+      reconciler: {
+        reconcile: vi.fn(async () => {
+          throw new DashboardBadCredentialsError()
+        }),
+      },
+    })
+
+    await expect(dashboard.getDashboard({
+      principal: PRINCIPAL,
+      repositoryAllowlist: new Set(),
+    })).rejects.toBeInstanceOf(DashboardBadCredentialsError)
+  })
+
+  it('fails closed when authorization refresh fails', async () => {
+    const { facade: dashboard, store } = facade({
+      repositories: [],
+      authorization: {
+        refresh: vi.fn(async () => {
+          throw new DashboardUpstreamError()
+        }),
+      },
+    })
+
+    await expect(dashboard.getDashboard({
+      principal: PRINCIPAL,
+      repositoryAllowlist: new Set(),
+    })).rejects.toBeInstanceOf(DashboardUpstreamError)
+    expect(store.load).not.toHaveBeenCalled()
   })
 })

@@ -1,8 +1,8 @@
-import { Hono } from 'hono'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
+import { eq } from 'drizzle-orm'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { hashSessionId } from '../../auth/session'
 import {
   closeDatabase,
@@ -13,16 +13,22 @@ import {
 import {
   githubInstallations,
   githubSessions,
+  githubUserRepositories,
   githubUsers,
   pullRequestReviewRequests,
   pullRequestReviews,
   pullRequests,
   repositories,
+  webhookDeliveries,
 } from '../../db/schema'
 import { createDrizzleWebhookStore } from '../../github/webhook/store'
 import { emptySyncPlan } from '../../github/webhook/types'
-import { prs } from '../../routes/prs'
 import { createDashboardService, createDrizzleDashboardStore } from '../dashboard'
+import {
+  createDrizzleDashboardAuthorizationStore,
+  createDrizzleDashboardReconciliationStore,
+  createGitHubDashboardAuthorization,
+} from '../github'
 
 const RUN_INTEGRATION = process.env['PRQ_DASHBOARD_DB_INTEGRATION'] === '1'
 const NOW = new Date('2026-06-07T12:00:00.000Z')
@@ -77,27 +83,157 @@ describe.skipIf(!RUN_INTEGRATION)('database-backed dashboard integration', () =>
     expect(JSON.stringify(dashboard)).not.toContain('closed')
   })
 
-  it('serves the stored projection through an authenticated route without GitHub reads', async () => {
-    const app = new Hono().route('/api', prs)
-    const res = await app.request('/api/prs?repos=acme%2Frocket', {
-      headers: { cookie: 'prq_session=session-plain' },
+  it('does not expose an active private repository without viewer repository access', async () => {
+    const dashboard = await createDashboardService({
+      store: createDrizzleDashboardStore(client.db),
+      now: () => NOW,
+    }).getDashboard({
+      viewer: { githubId: 'U_haji', login: 'haji' },
+      repositoryAllowlist: new Set(['acme/unauthorized']),
     })
 
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({
-      viewerLogin: 'haji',
-      buckets: {
-        review: [
-          { kind: 'pr', pr: { id: 'PR_rereview' } },
-          { kind: 'pr', pr: { id: 'PR_requested' } },
-        ],
-        waiting: [{ kind: 'stack', root: { pr: { id: 'PR_parent' } } }],
-      },
+    expect(dashboard.trackableRepos).not.toContainEqual(expect.objectContaining({
+      owner: 'acme',
+      name: 'unauthorized',
+    }))
+    expect(JSON.stringify(dashboard.buckets)).not.toContain('PR_unauthorized')
+  })
+
+  it('replaces viewer repository access exactly when GitHub revokes it', async () => {
+    const authorization = createGitHubDashboardAuthorization({
+      store: createDrizzleDashboardAuthorizationStore(client.db),
+      fetch: vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input))
+        if (url.pathname === '/user/installations') {
+          return jsonResponse({
+            total_count: 1,
+            installations: [{
+              id: 'I_active',
+              account: { id: 'A_acme', login: 'acme', type: 'Organization' },
+              suspended_at: null,
+            }],
+          })
+        }
+        return jsonResponse({ total_count: 0, repositories: [] })
+      }),
     })
+
+    await authorization.refresh({ githubId: 'U_haji', login: 'haji', accessToken: 'token' }, NOW)
+    const dashboard = await createDashboardService({
+      store: createDrizzleDashboardStore(client.db),
+      now: () => NOW,
+    }).getDashboard({
+      viewer: { githubId: 'U_haji', login: 'haji' },
+      repositoryAllowlist: new Set(['acme/rocket']),
+    })
+
+    expect(dashboard.trackableRepos).toEqual([])
+    expect(dashboard.buckets.waiting).toEqual([])
+    expect(await client.db.select({
+      active: githubInstallations.active,
+    }).from(githubInstallations).where(eq(
+      githubInstallations.githubInstallationId,
+      'I_owned',
+    ))).toEqual([{ active: true }])
+  })
+
+  it('persists rich reconciliation state and advances the repository timestamp atomically', async () => {
+    const reconciliationStore = createDrizzleDashboardReconciliationStore(client.db)
+    await reconciliationStore.persist({
+      repository: {
+        githubRepositoryId: 'R_active',
+        githubInstallationId: 'I_active',
+        owner: 'acme',
+        name: 'rocket',
+        dashboardReconciledAt: null,
+      },
+      pullRequests: [{
+        pullRequest: {
+          id: 'PR_reconciled',
+          number: 20,
+          title: 'Reconciled PR',
+          url: 'https://github.com/acme/rocket/pull/20',
+          author: { login: 'teammate' },
+          baseRefName: 'main',
+          headRefName: 'feature/reconciled',
+          headRepository: { owner: { login: 'acme' }, name: 'rocket' },
+          isDraft: false,
+          state: 'OPEN',
+          reviewDecision: 'REVIEW_REQUIRED',
+          mergeable: 'MERGEABLE',
+          statusCheckRollup: { state: 'SUCCESS' },
+          updatedAt: new Date('2026-06-07T11:45:00.000Z'),
+          closedAt: null,
+          mergedAt: null,
+          commits: {
+            totalCount: 7,
+            nodes: [{ commit: { committedDate: new Date('2026-06-07T11:30:00.000Z') } }],
+          },
+          comments: { totalCount: 9 },
+          reviewRequests: {
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+          reviews: {
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+          reviewThreads: {
+            nodes: [],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+        reviewRequests: [{
+          requestedReviewer: { __typename: 'User', login: 'haji' },
+        }],
+        reviews: [{
+          id: 'REV_reconciled',
+          author: { login: 'haji' },
+          state: 'APPROVED',
+          submittedAt: new Date('2026-06-07T10:00:00.000Z'),
+        }],
+        unresolvedThreadCount: 2,
+      }],
+      missingStates: [{
+        id: 'PR_parent',
+        state: 'MERGED',
+        updatedAt: NOW,
+        closedAt: NOW,
+        mergedAt: NOW,
+      }],
+      now: NOW,
+    })
+
+    const [repository] = await client.db.select({
+      dashboardReconciledAt: repositories.dashboardReconciledAt,
+    }).from(repositories).where(eq(repositories.githubRepositoryId, 'R_active'))
+    expect(repository?.dashboardReconciledAt).toEqual(NOW)
+
+    const dashboard = await createDashboardService({
+      store: createDrizzleDashboardStore(client.db),
+      now: () => NOW,
+    }).getDashboard({
+      viewer: { githubId: 'U_haji', login: 'haji' },
+      repositoryAllowlist: new Set(['acme/rocket']),
+    })
+    expect(dashboard.buckets.review).toContainEqual(expect.objectContaining({
+      kind: 'pr',
+      pr: expect.objectContaining({
+        id: 'PR_reconciled',
+        viewerIsRequestedReviewer: true,
+        viewerHasReviewed: true,
+        needsRereview: true,
+        commitsTotalCount: 7,
+        commentsTotalCount: 9,
+        unresolvedThreadCount: 2,
+      }),
+    }))
+    expect(JSON.stringify(dashboard.buckets)).not.toContain('PR_parent')
   })
 
   it('projects dashboard state written through webhook ingestion storage', async () => {
     await cleanTestRows(client)
+    await client.db.insert(githubUsers).values({ githubId: 'U_haji', login: 'haji' })
     const webhookStore = createDrizzleWebhookStore(client.db)
     await webhookStore.reserveDelivery({
       deliveryId: 'dashboard-smoke',
@@ -141,6 +277,10 @@ describe.skipIf(!RUN_INTEGRATION)('database-backed dashboard integration', () =>
         },
       }],
     }, NOW)
+    await client.db.insert(githubUserRepositories).values({
+      githubUserId: 'U_haji',
+      githubRepositoryId: 'R_webhook',
+    })
 
     const dashboard = await createDashboardService({
       store: createDrizzleDashboardStore(client.db),
@@ -194,6 +334,7 @@ async function seedStoredDashboard(client: DatabaseClient) {
       owner: 'acme',
       name: 'rocket',
       fullName: 'acme/rocket',
+      dashboardReconciledAt: NOW,
     },
     {
       githubRepositoryId: 'R_owned',
@@ -201,6 +342,7 @@ async function seedStoredDashboard(client: DatabaseClient) {
       owner: 'haji',
       name: 'dotfiles',
       fullName: 'haji/dotfiles',
+      dashboardReconciledAt: NOW,
     },
     {
       githubRepositoryId: 'R_inactive',
@@ -208,7 +350,21 @@ async function seedStoredDashboard(client: DatabaseClient) {
       owner: 'inactive',
       name: 'secret',
       fullName: 'inactive/secret',
+      dashboardReconciledAt: NOW,
     },
+    {
+      githubRepositoryId: 'R_unauthorized',
+      githubInstallationId: 'I_active',
+      owner: 'acme',
+      name: 'unauthorized',
+      fullName: 'acme/unauthorized',
+      private: true,
+      dashboardReconciledAt: NOW,
+    },
+  ])
+  await client.db.insert(githubUserRepositories).values([
+    { githubUserId: 'U_haji', githubRepositoryId: 'R_active' },
+    { githubUserId: 'U_haji', githubRepositoryId: 'R_owned' },
   ])
   await client.db.insert(pullRequests).values([
     storedPr('PR_parent', 'R_active', 1, 'haji', 'main', 'feature/parent', 'OPEN', 6),
@@ -221,6 +377,7 @@ async function seedStoredDashboard(client: DatabaseClient) {
     storedPr('PR_reviewed_done', 'R_active', 5, 'teammate', 'main', 'feature/done', 'OPEN', 2),
     storedPr('PR_closed', 'R_active', 6, 'haji', 'main', 'feature/closed', 'CLOSED', 1),
     storedPr('PR_inactive', 'R_inactive', 7, 'haji', 'main', 'feature/inactive', 'OPEN', 0),
+    storedPr('PR_unauthorized', 'R_unauthorized', 8, 'haji', 'main', 'feature/secret', 'OPEN', 0),
   ])
   await client.db.insert(pullRequestReviewRequests).values({
     githubPullRequestId: 'PR_requested',
@@ -278,10 +435,19 @@ async function cleanTestRows(client: DatabaseClient) {
   await client.db.delete(pullRequestReviews)
   await client.db.delete(pullRequestReviewRequests)
   await client.db.delete(pullRequests)
+  await client.db.delete(webhookDeliveries)
+  await client.db.delete(githubUserRepositories)
   await client.db.delete(repositories)
   await client.db.delete(githubSessions)
   await client.db.delete(githubUsers)
   await client.db.delete(githubInstallations)
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
 }
 
 async function ensureTestDatabase(url: string) {

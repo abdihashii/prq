@@ -12,56 +12,38 @@ import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { getDatabase, type Database } from '../db'
 import {
   githubInstallations,
+  githubUserRepositories,
   pullRequestReviewRequests,
   pullRequestReviews,
   pullRequests,
   repositories,
 } from '../db/schema'
-import type { AuthenticatedViewer } from '../auth/session'
+import { DashboardBadCredentialsError, DashboardUpstreamError } from './errors'
+import {
+  createGitHubDashboardAuthorization,
+  createGitHubDashboardReconciler,
+} from './github'
+import type {
+  DashboardAuthorization,
+  DashboardFacade,
+  DashboardProjectionService,
+  DashboardReconciler,
+  DashboardStore,
+  StoredDashboardState,
+  StoredPullRequest,
+} from './types'
 
-export interface StoredRepository {
-  owner: string
-  name: string
-}
-
-export interface StoredPullRequest {
-  id: string
-  number: number
-  title: string
-  url: string
-  repository: StoredRepository
-  headRepository: StoredRepository | null
-  authorLogin: string | null
-  baseRefName: string
-  headRefName: string
-  isDraft: boolean
-  updatedAt: Date
-  reviewDecision: PullRequest['reviewDecision']
-  mergeable: PullRequest['mergeable']
-  statusCheckRollupState: NonNullable<PullRequest['statusCheckRollup']>['state'] | null
-  latestCommitCommittedAt: Date | null
-  commitsTotalCount: number
-  commentsTotalCount: number
-  unresolvedThreadCount: number
-  requestedReviewers: RequestedReviewer[]
-  viewerReviewSubmittedAt: Array<Date | null>
-}
-
-export interface StoredDashboardState {
-  ownedRepositories: StoredRepository[]
-  pullRequests: StoredPullRequest[]
-}
-
-export interface DashboardStore {
-  load(viewer: AuthenticatedViewer): Promise<StoredDashboardState>
-}
-
-export interface DashboardService {
-  getDashboard(args: {
-    viewer: AuthenticatedViewer
-    repositoryAllowlist: ReadonlySet<string>
-  }): Promise<DashboardResponse>
-}
+export type {
+  AuthorizedRepository,
+  DashboardAuthorization,
+  DashboardFacade,
+  DashboardProjectionService,
+  DashboardReconciler,
+  DashboardStore,
+  StoredDashboardState,
+  StoredPullRequest,
+  StoredRepository,
+} from './types'
 
 interface DashboardDependencies {
   store?: DashboardStore
@@ -70,7 +52,7 @@ interface DashboardDependencies {
 
 export function createDashboardService(
   dependencies: DashboardDependencies = {},
-): DashboardService {
+): DashboardProjectionService {
   const store = dependencies.store ?? createDrizzleDashboardStore()
   const now = dependencies.now ?? (() => new Date())
 
@@ -82,14 +64,63 @@ export function createDashboardService(
   }
 }
 
+interface DashboardFacadeDependencies extends DashboardDependencies {
+  authorization?: DashboardAuthorization
+  reconciler?: DashboardReconciler
+  logError?: (message: string, error: unknown) => void
+}
+
+const RECONCILIATION_INTERVAL_MS = 60 * 60 * 1000
+const RECONCILIATION_CONCURRENCY = 4
+
+export function createDashboardFacade(
+  dependencies: DashboardFacadeDependencies = {},
+): DashboardFacade {
+  const authorization = dependencies.authorization ?? createGitHubDashboardAuthorization()
+  const reconciler = dependencies.reconciler ?? createGitHubDashboardReconciler()
+  const projection = createDashboardService(dependencies)
+  const now = dependencies.now ?? (() => new Date())
+  const logError = dependencies.logError ?? ((message, error) => console.error(message, error))
+
+  return {
+    async getDashboard({ principal, repositoryAllowlist }) {
+      const requestedAt = now()
+      const authorizedRepositories = await authorization.refresh(principal, requestedAt)
+      const repositoriesToReconcile = authorizedRepositories.filter(repository =>
+        repository.dashboardReconciledAt === null
+        || requestedAt.getTime() - repository.dashboardReconciledAt.getTime()
+          >= RECONCILIATION_INTERVAL_MS,
+      )
+
+      await runWithConcurrency(repositoriesToReconcile, RECONCILIATION_CONCURRENCY, async (repository) => {
+        try {
+          await reconciler.reconcile(repository, principal, requestedAt)
+        }
+        catch (error) {
+          if (error instanceof DashboardBadCredentialsError) throw error
+          if (repository.dashboardReconciledAt === null) throw new DashboardUpstreamError()
+          logError(
+            `dashboard reconciliation failed for ${repository.owner}/${repository.name}`,
+            error,
+          )
+        }
+      })
+
+      return projection.getDashboard({
+        viewer: { githubId: principal.githubId, login: principal.login },
+        repositoryAllowlist,
+      })
+    },
+  }
+}
+
 export function createDrizzleDashboardStore(db: Database = getDatabase().db): DashboardStore {
   return {
     async load(viewer) {
       const normalizedViewerLogin = viewer.login.toLowerCase()
-      const activeViewerInstallation = and(
+      const activeViewerRepository = and(
         eq(githubInstallations.active, true),
-        eq(githubInstallations.accountGithubId, viewer.githubId),
-        eq(githubInstallations.accountType, 'User'),
+        eq(githubUserRepositories.githubUserId, viewer.githubId),
       )
 
       const ownedRepositories = await db.select({
@@ -97,10 +128,14 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
         name: repositories.name,
       }).from(repositories)
         .innerJoin(
+          githubUserRepositories,
+          eq(repositories.githubRepositoryId, githubUserRepositories.githubRepositoryId),
+        )
+        .innerJoin(
           githubInstallations,
           eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
         )
-        .where(activeViewerInstallation)
+        .where(activeViewerRepository)
         .orderBy(asc(repositories.owner), asc(repositories.name))
 
       const relevantToViewer = sql`(
@@ -142,12 +177,16 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
       }).from(pullRequests)
         .innerJoin(repositories, eq(pullRequests.githubRepositoryId, repositories.githubRepositoryId))
         .innerJoin(
+          githubUserRepositories,
+          eq(repositories.githubRepositoryId, githubUserRepositories.githubRepositoryId),
+        )
+        .innerJoin(
           githubInstallations,
           eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
         )
         .where(and(
           eq(pullRequests.state, 'OPEN'),
-          eq(githubInstallations.active, true),
+          activeViewerRepository,
           relevantToViewer,
         ))
         .orderBy(desc(pullRequests.githubUpdatedAt), asc(pullRequests.githubPullRequestId))
@@ -221,6 +260,22 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
       }
     },
   }
+}
+
+async function runWithConcurrency<T>(
+  values: T[],
+  concurrency: number,
+  task: (value: T) => Promise<void>,
+): Promise<void> {
+  let index = 0
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (index < values.length) {
+      const value = values[index]
+      index += 1
+      if (value !== undefined) await task(value)
+    }
+  })
+  await Promise.all(workers)
 }
 
 function projectDashboard(

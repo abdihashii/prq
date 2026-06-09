@@ -255,6 +255,45 @@ describe('getAuthenticatedViewer', () => {
     expect(cookie).toContain('prq_session=session-plain')
   })
 
+  it('invalidates an expiring session when GitHub rejects its refresh token', async () => {
+    const store = makeStore({
+      findSession: vi.fn(async () => ({
+        sessionIdHash: hashSessionId('session-plain'),
+        githubUserId: '1001',
+        githubUserLogin: 'haji',
+        accessToken: 'old-access',
+        refreshToken: 'rejected-refresh',
+        accessTokenExpiresAt: new Date('2026-05-31T12:00:30.000Z'),
+        refreshTokenExpiresAt: new Date('2026-12-01T12:00:00.000Z'),
+        expiresAt: new Date('2026-06-30T12:00:00.000Z'),
+      })),
+    })
+    const app = new Hono()
+    app.get('/viewer', async (c) => {
+      try {
+        return c.json(await getAuthenticatedViewer(c, {
+          config: CONFIG,
+          store,
+          fetch: vi.fn(async () => jsonResponse({ error: 'bad_refresh_token' }, 400)),
+          now: () => NOW,
+        }))
+      }
+      catch (error) {
+        return c.json({ name: error instanceof Error ? error.name : 'unknown' }, 401)
+      }
+    })
+
+    const res = await app.request('/viewer', {
+      headers: { cookie: 'prq_session=session-plain' },
+    })
+
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ name: 'UnauthorizedError' })
+    expect(store.deleteSession).toHaveBeenCalledWith(hashSessionId('session-plain'))
+    expect(res.headers.get('set-cookie')).toContain('prq_session=')
+    expect(res.headers.get('set-cookie')).toContain('Max-Age=0')
+  })
+
   it('resolves stored viewer identity without a GitHub request', async () => {
     const store = makeStore({
       findSession: vi.fn(async () => ({
