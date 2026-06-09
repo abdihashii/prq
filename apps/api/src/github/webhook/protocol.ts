@@ -275,7 +275,7 @@ export function normalizeWebhook(delivery: WebhookDelivery): WebhookSyncPlan {
         : emptySyncPlan()
     case 'pull_request':
       return SUPPORTED_PULL_REQUEST_ACTIONS.has(action)
-        ? pullRequestPlan(parseSupported(PullRequestPayloadSchema, delivery.payload))
+        ? pullRequestPlan(parseSupported(PullRequestPayloadSchema, delivery.payload), action)
         : emptySyncPlan()
     case 'pull_request_review':
       return SUPPORTED_REVIEW_ACTIONS.has(action)
@@ -355,11 +355,13 @@ function repositoryPlan(
 
 function pullRequestPlan(
   payload: z.infer<typeof PullRequestPayloadSchema>,
+  action?: string,
 ): WebhookSyncPlan {
   const installation = installationSnapshot(
     payload.installation,
     payload.repository,
   )
+  const pullRequest = pullRequestSnapshot(payload.pull_request, payload.repository.node_id)
 
   return {
     ...emptySyncPlan(),
@@ -368,9 +370,15 @@ function pullRequestPlan(
       repositorySnapshot(payload.repository, installation.githubInstallationId),
     ],
     pullRequests: [{
-      pullRequest: pullRequestSnapshot(payload.pull_request, payload.repository.node_id),
+      pullRequest,
       reviewRequests: reviewRequestSnapshots(payload.pull_request),
     }],
+    autoRetargetRequests: action === 'closed' && pullRequest.state === 'MERGED'
+      ? [{
+          parentPullRequestId: pullRequest.githubPullRequestId,
+          desiredBaseRefName: pullRequest.baseRefName,
+        }]
+      : [],
   }
 }
 

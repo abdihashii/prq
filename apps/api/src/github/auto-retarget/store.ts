@@ -1,5 +1,6 @@
 import {
   and,
+  asc,
   desc,
   eq,
   inArray,
@@ -23,6 +24,30 @@ import type {
 
 const MAX_ERROR_MESSAGE_LENGTH = 1000
 type AutoRetargetDb = Pick<Database, 'insert' | 'select' | 'update'>
+interface StoredParent {
+  id: string
+  repositoryId: string
+  state: 'OPEN' | 'CLOSED' | 'MERGED'
+  baseRefName: string
+  headRefName: string
+  headRepositoryOwner: string | null
+  headRepositoryName: string | null
+  repositoryOwner: string
+  repositoryName: string
+  repositoryArchived: boolean
+  repositoryReconciledAt: Date | null
+  githubInstallationId: string | null
+  installationActive: boolean | null
+  installationSuspendedAt: Date | null
+}
+interface AuditAttempt {
+  githubPullRequestId: string | null
+  parentGithubPullRequestId: string | null
+  deliveryId: string | null
+  previousBaseRefName: string | null
+  nextBaseRefName: string
+  errorMessage: string | null
+}
 
 /**
  * Parent locks serialize attempt creation. An applying event means a GitHub
@@ -32,6 +57,10 @@ export function createDrizzleAutoRetargetStore(
   db: Database = getDatabase().db,
 ): AutoRetargetStore {
   return {
+    async loadWork() {
+      return db.transaction(async (tx) => loadWork(tx))
+    },
+
     async prepare(args, now) {
       return db.transaction(async (tx) => prepareAttempt(tx, args, now))
     },
@@ -47,7 +76,7 @@ export function createDrizzleAutoRetargetStore(
           return finishSkipped(tx, attemptId, target.reason)
         }
 
-        const inspected = await callGitHub(tx, attemptId, () => inspect(target.target))
+        const inspected = await callGitHub(tx, target.target, () => inspect(target.target), now)
         if (inspected.kind === 'failed') return inspected
 
         const skipReason = remoteSkipReason(inspected.pullRequest, target.target)
@@ -91,16 +120,46 @@ export function createDrizzleAutoRetargetStore(
         catch (error) {
           return recoverMutationFailure(tx, target.target, inspect, error, now)
         }
-        if (updated.state !== 'OPEN'
-          || updated.baseRefName !== target.target.nextBaseRefName) {
-          return finishFailed(tx, attemptId, 'GitHub did not apply the requested pull request base')
+        if (updated.baseRefName === target.target.nextBaseRefName) {
+          await finishSucceeded(tx, target.target, updated, now)
+          return { kind: 'succeeded' }
         }
-
-        await finishSucceeded(tx, target.target, updated, now)
-        return { kind: 'succeeded' }
+        if (updated.state !== 'OPEN') return finishSkipped(tx, attemptId, 'child_is_not_open')
+        return recordRetryableFailure(
+          tx,
+          attemptId,
+          'GitHub did not apply the requested pull request base',
+          now,
+        )
       })
     },
   }
+}
+
+async function loadWork(db: AutoRetargetDb): Promise<MergedParentRetarget[]> {
+  const rows = await db.select({
+    id: autoRetargetEvents.id,
+    deliveryId: autoRetargetEvents.deliveryId,
+    parentPullRequestId: autoRetargetEvents.parentGithubPullRequestId,
+    desiredBaseRefName: autoRetargetEvents.nextBaseRefName,
+  }).from(autoRetargetEvents)
+    .where(inArray(autoRetargetEvents.status, ['pending', 'applying']))
+    .orderBy(asc(autoRetargetEvents.id))
+
+  const work: MergedParentRetarget[] = []
+  for (const row of rows) {
+    if (row.deliveryId === null || row.parentPullRequestId === null) {
+      await finishSkipped(db, row.id, 'required_state_unavailable')
+    }
+    else {
+      work.push({
+        deliveryId: row.deliveryId,
+        parentPullRequestId: row.parentPullRequestId,
+        desiredBaseRefName: row.desiredBaseRefName,
+      })
+    }
+  }
+  return work
 }
 
 async function prepareAttempt(
@@ -108,7 +167,7 @@ async function prepareAttempt(
   args: MergedParentRetarget,
   now: Date,
 ): Promise<AutoRetargetStep> {
-  const [parent] = await db.select({
+  const [parent]: StoredParent[] = await db.select({
     id: pullRequests.githubPullRequestId,
     repositoryId: pullRequests.githubRepositoryId,
     state: pullRequests.state,
@@ -119,6 +178,7 @@ async function prepareAttempt(
     repositoryOwner: repositories.owner,
     repositoryName: repositories.name,
     repositoryArchived: repositories.archived,
+    repositoryReconciledAt: repositories.dashboardReconciledAt,
     githubInstallationId: repositories.githubInstallationId,
     installationActive: githubInstallations.active,
     installationSuspendedAt: githubInstallations.suspendedAt,
@@ -132,7 +192,7 @@ async function prepareAttempt(
     .limit(1)
     .for('update', { of: pullRequests })
 
-  if (!parent) throw new Error(`Merged parent ${args.parentPullRequestId} is unavailable`)
+  if (!parent) return insertUnlinkedSkip(db, args, 'required_state_unavailable', now)
 
   const [succeeded] = await db.select({ id: autoRetargetEvents.id })
     .from(autoRetargetEvents)
@@ -143,14 +203,25 @@ async function prepareAttempt(
     .limit(1)
   if (succeeded) return { kind: 'already-complete' }
 
-  const [active] = await db.select({ id: autoRetargetEvents.id })
+  const [active] = await db.select({
+    id: autoRetargetEvents.id,
+    status: autoRetargetEvents.status,
+    childPullRequestId: autoRetargetEvents.githubPullRequestId,
+    previousBaseRefName: autoRetargetEvents.previousBaseRefName,
+  })
     .from(autoRetargetEvents)
     .where(and(
       eq(autoRetargetEvents.parentGithubPullRequestId, parent.id),
       inArray(autoRetargetEvents.status, ['pending', 'applying']),
     ))
     .limit(1)
-  if (active) return { kind: 'continue', attemptId: active.id }
+  if (active) {
+    if (active.status === 'applying'
+      || (active.childPullRequestId !== null && active.previousBaseRefName !== null)) {
+      return { kind: 'continue', attemptId: active.id }
+    }
+    return preparePendingAttempt(db, active.id, args, parent, now)
+  }
 
   const [sameDeliverySkip] = await db.select({ id: autoRetargetEvents.id })
     .from(autoRetargetEvents)
@@ -163,11 +234,35 @@ async function prepareAttempt(
     .limit(1)
   if (sameDeliverySkip) return { kind: 'skipped' }
 
+  const [attempt] = await db.insert(autoRetargetEvents).values({
+    parentGithubPullRequestId: parent.id,
+    deliveryId: args.deliveryId,
+    nextBaseRefName: args.desiredBaseRefName,
+    status: 'pending',
+    createdAt: now,
+  }).returning({ id: autoRetargetEvents.id })
+  if (!attempt) throw new Error('Failed to create auto-retarget attempt')
+  return preparePendingAttempt(db, attempt.id, args, parent, now)
+}
+
+async function preparePendingAttempt(
+  db: AutoRetargetDb,
+  attemptId: number,
+  args: MergedParentRetarget,
+  parent: StoredParent,
+  now: Date,
+): Promise<AutoRetargetStep> {
   if (parent.state !== 'MERGED') {
-    return insertSkipped(db, args, null, null, 'parent_is_not_merged', now)
+    return finishPreparedSkip(db, attemptId, null, null, 'parent_is_not_merged')
   }
   if (parent.baseRefName !== args.desiredBaseRefName) {
-    return insertSkipped(db, args, null, null, 'parent_base_no_longer_matches_delivery', now)
+    return finishPreparedSkip(
+      db,
+      attemptId,
+      null,
+      null,
+      'parent_base_no_longer_matches_delivery',
+    )
   }
   if (!sameRepository(
     parent.repositoryOwner,
@@ -175,9 +270,14 @@ async function prepareAttempt(
     parent.headRepositoryOwner,
     parent.headRepositoryName,
   )) {
-    return insertSkipped(db, args, null, null, 'parent_head_repository_is_not_the_base_repository', now)
+    return finishPreparedSkip(
+      db,
+      attemptId,
+      null,
+      null,
+      'parent_head_repository_is_not_the_base_repository',
+    )
   }
-
   const candidates = await db.select({
     id: pullRequests.githubPullRequestId,
     baseRefName: pullRequests.baseRefName,
@@ -187,56 +287,82 @@ async function prepareAttempt(
     eq(pullRequests.baseRefName, parent.headRefName),
     ne(pullRequests.githubPullRequestId, parent.id),
   ))
+  const openCandidates = candidates.filter(candidate => candidate.state === 'OPEN')
 
-  if (candidates.length === 0) {
-    return insertSkipped(db, args, null, null, 'no_direct_child', now)
+  if (openCandidates.length > 1) {
+    return finishPreparedSkip(db, attemptId, null, null, 'multiple_direct_children')
   }
-  if (candidates.length > 1) {
-    return insertSkipped(db, args, null, null, 'multiple_direct_children', now)
+  if (openCandidates.length === 0 && parent.repositoryReconciledAt === null) {
+    return recordDeferredSkip(db, attemptId, 'repository_state_unavailable', now)
+  }
+  if (openCandidates.length === 0 && candidates.length > 1) {
+    return finishPreparedSkip(db, attemptId, null, null, 'multiple_direct_children')
+  }
+  if (openCandidates.length === 0 && candidates.length === 1) {
+    const child = candidates[0]!
+    return finishPreparedSkip(db, attemptId, child.id, child.baseRefName, 'child_is_not_open')
+  }
+  if (openCandidates.length === 0) {
+    return finishPreparedSkip(db, attemptId, null, null, 'no_direct_child')
   }
 
-  const child = candidates[0]!
-  if (child.state !== 'OPEN') {
-    return insertSkipped(db, args, child.id, child.baseRefName, 'child_is_not_open', now)
-  }
+  const child = openCandidates[0]!
   if (!repositoryAvailable(parent)) {
-    return insertSkipped(db, args, child.id, child.baseRefName, 'repository_or_installation_unavailable', now)
+    return finishPreparedSkip(
+      db,
+      attemptId,
+      child.id,
+      child.baseRefName,
+      'repository_or_installation_unavailable',
+    )
   }
   if (child.baseRefName === args.desiredBaseRefName) {
-    return insertSkipped(db, args, child.id, child.baseRefName, 'already_targeting_desired_base', now)
+    return finishPreparedSkip(
+      db,
+      attemptId,
+      child.id,
+      child.baseRefName,
+      'already_targeting_desired_base',
+    )
   }
 
-  const [attempt] = await db.insert(autoRetargetEvents).values({
+  await db.update(autoRetargetEvents).set({
     githubPullRequestId: child.id,
-    parentGithubPullRequestId: parent.id,
-    deliveryId: args.deliveryId,
     previousBaseRefName: child.baseRefName,
-    nextBaseRefName: args.desiredBaseRefName,
-    status: 'pending',
-    createdAt: now,
-  }).returning({ id: autoRetargetEvents.id })
-  if (!attempt) throw new Error('Failed to create auto-retarget attempt')
-  return { kind: 'continue', attemptId: attempt.id }
+    errorMessage: null,
+  }).where(eq(autoRetargetEvents.id, attemptId))
+  return { kind: 'continue', attemptId }
 }
 
-async function insertSkipped(
+async function insertUnlinkedSkip(
   db: AutoRetargetDb,
   args: MergedParentRetarget,
-  childPullRequestId: string | null,
-  previousBaseRefName: string | null,
   reason: string,
   now: Date,
 ): Promise<AutoRetargetStep> {
   await db.insert(autoRetargetEvents).values({
-    githubPullRequestId: childPullRequestId,
-    parentGithubPullRequestId: args.parentPullRequestId,
     deliveryId: args.deliveryId,
-    previousBaseRefName,
     nextBaseRefName: args.desiredBaseRefName,
     status: 'skipped',
     errorMessage: reason,
     createdAt: now,
   })
+  return { kind: 'skipped' }
+}
+
+async function finishPreparedSkip(
+  db: AutoRetargetDb,
+  attemptId: number,
+  childPullRequestId: string | null,
+  previousBaseRefName: string | null,
+  reason: string,
+): Promise<AutoRetargetStep> {
+  await db.update(autoRetargetEvents).set({
+    githubPullRequestId: childPullRequestId,
+    previousBaseRefName,
+    status: 'skipped',
+    errorMessage: reason,
+  }).where(eq(autoRetargetEvents.id, attemptId))
   return { kind: 'skipped' }
 }
 
@@ -270,7 +396,7 @@ async function lockedAttempt(
 async function loadTarget(
   db: AutoRetargetDb,
   attemptId: number,
-  allowLocallyAppliedBase: boolean,
+  allowRemoteRecovery: boolean,
 ): Promise<
   | { kind: 'target', target: AutoRetargetTarget }
   | { kind: 'unavailable', reason: string }
@@ -302,9 +428,8 @@ async function loadTarget(
     || row.childPullRequestId === null
     || row.previousBaseRefName === null
     || row.childNumber === null
-    || row.childState !== 'OPEN'
-    || (row.childBaseRefName !== row.previousBaseRefName
-      && (!allowLocallyAppliedBase || row.childBaseRefName !== row.nextBaseRefName))) {
+    || (!allowRemoteRecovery
+      && (row.childState !== 'OPEN' || row.childBaseRefName !== row.previousBaseRefName))) {
     return { kind: 'unavailable', reason: 'child_relationship_unavailable' }
   }
   if (row.repositoryOwner === null
@@ -345,14 +470,15 @@ function remoteSkipReason(
 
 async function callGitHub(
   db: AutoRetargetDb,
-  attemptId: number,
+  target: AutoRetargetTarget,
   operation: () => Promise<RemotePullRequest>,
+  now: Date,
 ): Promise<{ kind: 'success', pullRequest: RemotePullRequest } | { kind: 'failed', message: string }> {
   try {
     return { kind: 'success', pullRequest: await operation() }
   }
   catch (error) {
-    return finishFailed(db, attemptId, errorMessage(error))
+    return recordRetryableFailure(db, target.attemptId, errorMessage(error), now)
   }
 }
 
@@ -395,7 +521,7 @@ async function recoverMutationFailure(
   }
   const skipReason = remoteSkipReason(pullRequest, target)
   if (skipReason !== null) return finishSkipped(db, target.attemptId, skipReason)
-  return finishFailed(db, target.attemptId, message)
+  return recordRetryableFailure(db, target.attemptId, message, now)
 }
 
 async function recordAmbiguousFailure(
@@ -404,27 +530,74 @@ async function recordAmbiguousFailure(
   message: string,
   now: Date,
 ): Promise<void> {
+  const bounded = await insertAuditOutcome(db, attemptId, 'failed', message, now)
+  await db.update(autoRetargetEvents).set({
+    errorMessage: bounded,
+  }).where(eq(autoRetargetEvents.id, attemptId))
+}
+
+async function recordRetryableFailure(
+  db: AutoRetargetDb,
+  attemptId: number,
+  message: string,
+  now: Date,
+): Promise<{ kind: 'failed', message: string }> {
+  const bounded = await insertAuditOutcome(db, attemptId, 'failed', message, now)
+  await db.update(autoRetargetEvents).set({
+    status: 'pending',
+    errorMessage: bounded,
+  }).where(eq(autoRetargetEvents.id, attemptId))
+  return { kind: 'failed', message: bounded }
+}
+
+async function recordDeferredSkip(
+  db: AutoRetargetDb,
+  attemptId: number,
+  reason: string,
+  now: Date,
+): Promise<AutoRetargetStep> {
+  const attempt = await loadAuditAttempt(db, attemptId)
+  if (attempt.errorMessage !== reason) {
+    await insertAuditOutcome(db, attemptId, 'skipped', reason, now, attempt)
+  }
+  await db.update(autoRetargetEvents).set({
+    errorMessage: reason,
+  }).where(eq(autoRetargetEvents.id, attemptId))
+  return { kind: 'skipped' }
+}
+
+async function insertAuditOutcome(
+  db: AutoRetargetDb,
+  attemptId: number,
+  status: 'failed' | 'skipped',
+  message: string,
+  now: Date,
+  loadedAttempt?: AuditAttempt,
+): Promise<string> {
   const bounded = message.slice(0, MAX_ERROR_MESSAGE_LENGTH)
-  const [attempt] = await db.select({
+  const attempt = loadedAttempt ?? await loadAuditAttempt(db, attemptId)
+  await db.insert(autoRetargetEvents).values({
+    ...attempt,
+    status,
+    errorMessage: bounded,
+    createdAt: now,
+  })
+  return bounded
+}
+
+async function loadAuditAttempt(db: AutoRetargetDb, attemptId: number): Promise<AuditAttempt> {
+  const [attempt]: AuditAttempt[] = await db.select({
     githubPullRequestId: autoRetargetEvents.githubPullRequestId,
     parentGithubPullRequestId: autoRetargetEvents.parentGithubPullRequestId,
     deliveryId: autoRetargetEvents.deliveryId,
     previousBaseRefName: autoRetargetEvents.previousBaseRefName,
     nextBaseRefName: autoRetargetEvents.nextBaseRefName,
+    errorMessage: autoRetargetEvents.errorMessage,
   }).from(autoRetargetEvents)
     .where(eq(autoRetargetEvents.id, attemptId))
     .limit(1)
   if (!attempt) throw new Error(`Auto-retarget attempt ${attemptId} is unavailable`)
-
-  await db.insert(autoRetargetEvents).values({
-    ...attempt,
-    status: 'failed',
-    errorMessage: bounded,
-    createdAt: now,
-  })
-  await db.update(autoRetargetEvents).set({
-    errorMessage: bounded,
-  }).where(eq(autoRetargetEvents.id, attemptId))
+  return attempt
 }
 
 async function finishSucceeded(

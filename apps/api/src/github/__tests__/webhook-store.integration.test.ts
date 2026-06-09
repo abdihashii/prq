@@ -18,7 +18,7 @@ import {
   repositories,
   webhookDeliveries,
 } from '../../db/schema'
-import { createAutoRetargetService } from '../auto-retarget'
+import { createAutoRetargetService, createAutoRetargetWorker } from '../auto-retarget'
 import { createDrizzleAutoRetargetStore } from '../auto-retarget/store'
 import type { GitHubRetargetClient, RemotePullRequest } from '../auto-retarget/types'
 import { ingestGitHubWebhook } from '../webhook'
@@ -87,10 +87,15 @@ describe.skipIf(!RUN_INTEGRATION)('Drizzle GitHub webhook store integration', ()
       ...invalid.reviews[0]!,
       githubPullRequestId: 'PR_missing',
     }
+    invalid.autoRetargetRequests = [{
+      parentPullRequestId: 'PR_one',
+      desiredBaseRefName: 'main',
+    }]
 
     await expect(store.applyDelivery('delivery-retry', invalid, NOW)).rejects.toThrow()
     expect(await client.db.select().from(githubInstallations)
       .where(eq(githubInstallations.githubInstallationId, '42'))).toHaveLength(0)
+    expect(await client.db.select().from(autoRetargetEvents)).toHaveLength(0)
     expect(await deliveryStatus(client, 'delivery-retry')).toMatchObject({ status: 'received' })
 
     await store.markDeliveryFailed('delivery-retry', new Error('x'.repeat(2000)), NOW)
@@ -376,8 +381,8 @@ describe.skipIf(!RUN_INTEGRATION)('Drizzle GitHub webhook store integration', ()
       status: autoRetargetEvents.status,
       errorMessage: autoRetargetEvents.errorMessage,
     }).from(autoRetargetEvents).orderBy(autoRetargetEvents.id)).toEqual([
-      { status: 'failed', errorMessage: 'GitHub unavailable' },
       { status: 'succeeded', errorMessage: null },
+      { status: 'failed', errorMessage: 'GitHub unavailable' },
     ])
   })
 
@@ -419,6 +424,31 @@ describe.skipIf(!RUN_INTEGRATION)('Drizzle GitHub webhook store integration', ()
     })
     await client.db.update(pullRequests).set({ baseRefName: 'main' })
       .where(eq(pullRequests.githubPullRequestId, 'PR_child'))
+    const github = githubClient()
+    vi.mocked(github.inspect).mockResolvedValue(remotePullRequest('main'))
+    const service = createAutoRetargetService({
+      store: createDrizzleAutoRetargetStore(client.db),
+      github,
+    })
+
+    await expect(service.retargetMergedParent(retargetArgs())).resolves.toBe('succeeded')
+    expect(github.retarget).not.toHaveBeenCalled()
+  })
+
+  it('uses remote state to recover applying work after local child state changes', async () => {
+    await seedAutoRetargetStack(client)
+    await client.db.insert(autoRetargetEvents).values({
+      githubPullRequestId: 'PR_child',
+      parentGithubPullRequestId: 'PR_parent',
+      deliveryId: 'delivery-retarget',
+      previousBaseRefName: 'feature/parent',
+      nextBaseRefName: 'main',
+      status: 'applying',
+    })
+    await client.db.update(pullRequests).set({
+      state: 'CLOSED',
+      baseRefName: 'feature/manual-base',
+    }).where(eq(pullRequests.githubPullRequestId, 'PR_child'))
     const github = githubClient()
     vi.mocked(github.inspect).mockResolvedValue(remotePullRequest('main'))
     const service = createAutoRetargetService({
@@ -538,6 +568,82 @@ describe.skipIf(!RUN_INTEGRATION)('Drizzle GitHub webhook store integration', ()
         errorMessage: scenario.reason,
       }])
     }
+  })
+
+  it('ignores closed historical candidates when one direct open child exists', async () => {
+    await seedAutoRetargetStack(client)
+    await client.db.insert(pullRequests).values(storedPullRequest(
+      'PR_second_child',
+      3,
+      'feature/parent',
+      'feature/closed-child',
+      'CLOSED',
+    ))
+    const github = githubClient()
+    const service = createAutoRetargetService({
+      store: createDrizzleAutoRetargetStore(client.db),
+      github,
+    })
+
+    await expect(service.retargetMergedParent(retargetArgs())).resolves.toBe('succeeded')
+    expect(github.retarget).toHaveBeenCalledOnce()
+  })
+
+  it('keeps incomplete repository state retryable until reconciliation finds the child', async () => {
+    await seedAutoRetargetStack(client)
+    await client.db.delete(pullRequests).where(eq(pullRequests.githubPullRequestId, 'PR_child'))
+    await client.db.insert(pullRequests).values(storedPullRequest(
+      'PR_second_child',
+      3,
+      'feature/parent',
+      'feature/closed-child',
+      'CLOSED',
+    ))
+    await client.db.update(repositories).set({ dashboardReconciledAt: null })
+      .where(eq(repositories.githubRepositoryId, 'R_repo'))
+    const github = githubClient()
+    const store = createDrizzleAutoRetargetStore(client.db)
+    const service = createAutoRetargetService({ store, github })
+
+    await expect(service.retargetMergedParent(retargetArgs())).resolves.toBe('skipped')
+    expect(github.retarget).not.toHaveBeenCalled()
+    expect(await client.db.select({
+      status: autoRetargetEvents.status,
+      errorMessage: autoRetargetEvents.errorMessage,
+    }).from(autoRetargetEvents).orderBy(autoRetargetEvents.id)).toEqual([
+      { status: 'pending', errorMessage: 'repository_state_unavailable' },
+      { status: 'skipped', errorMessage: 'repository_state_unavailable' },
+    ])
+
+    await client.db.insert(pullRequests).values(
+      storedPullRequest('PR_child', 2, 'feature/parent', 'feature/child', 'OPEN'),
+    )
+    await client.db.update(repositories).set({ dashboardReconciledAt: NOW })
+      .where(eq(repositories.githubRepositoryId, 'R_repo'))
+
+    await expect(createAutoRetargetWorker({ store, github }).runOnce()).resolves.toBe(1)
+    expect(github.retarget).toHaveBeenCalledOnce()
+  })
+
+  it('drains a retarget transactionally scheduled before post-webhook execution', async () => {
+    await seedAutoRetargetStack(client)
+    const webhookStore = createDrizzleWebhookStore(client.db)
+    await webhookStore.reserveDelivery(delivery('delivery-worker'))
+    await webhookStore.applyDelivery('delivery-worker', {
+      ...emptySyncPlan(),
+      autoRetargetRequests: [{
+        parentPullRequestId: 'PR_parent',
+        desiredBaseRefName: 'main',
+      }],
+    }, NOW)
+    const github = githubClient()
+    const store = createDrizzleAutoRetargetStore(client.db)
+
+    expect(await client.db.select({
+      status: autoRetargetEvents.status,
+    }).from(autoRetargetEvents)).toEqual([{ status: 'pending' }])
+    await expect(createAutoRetargetWorker({ store, github }).runOnce()).resolves.toBe(1)
+    expect(github.retarget).toHaveBeenCalledOnce()
   })
 
   it('records an already-targeting remote child as skipped without patching GitHub', async () => {
@@ -677,6 +783,7 @@ function completePlan(): WebhookSyncPlan {
       state: 'APPROVED',
       submittedAt: new Date('2026-06-06T11:30:00.000Z'),
     }],
+    autoRetargetRequests: [],
   }
 }
 
@@ -704,6 +811,7 @@ async function cleanTestRows(client: DatabaseClient) {
     'delivery-inactive-replacement',
     'delivery-retarget',
     'delivery-signed-retarget',
+    'delivery-worker',
   ]))
   await client.db.delete(pullRequestReviews)
     .where(eq(pullRequestReviews.githubReviewId, 'PRR_one'))
@@ -736,6 +844,7 @@ async function seedAutoRetargetStack(client: DatabaseClient) {
     owner: 'acme',
     name: 'rocket',
     fullName: 'acme/rocket',
+    dashboardReconciledAt: NOW,
   })
   await client.db.insert(pullRequests).values([
     storedPullRequest('PR_parent', 1, 'main', 'feature/parent', 'MERGED'),

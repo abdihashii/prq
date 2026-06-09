@@ -3,12 +3,14 @@ import { createDrizzleAutoRetargetStore } from './auto-retarget/store'
 import type {
   AutoRetargetService,
   AutoRetargetStore,
+  AutoRetargetWorker,
   GitHubRetargetClient,
 } from './auto-retarget/types'
 
 export type {
   AutoRetargetResult,
   AutoRetargetService,
+  AutoRetargetWorker,
   MergedParentRetarget,
 } from './auto-retarget/types'
 
@@ -18,6 +20,8 @@ export class AutoRetargetError extends Error {
     this.name = 'AutoRetargetError'
   }
 }
+
+const DEFAULT_WORK_INTERVAL_MS = 60_000
 
 export function createAutoRetargetService(dependencies: {
   store?: AutoRetargetStore
@@ -44,6 +48,67 @@ export function createAutoRetargetService(dependencies: {
       ))
     },
   }
+}
+
+export function createAutoRetargetWorker(dependencies: {
+  store?: AutoRetargetStore
+  service?: AutoRetargetService
+  github?: GitHubRetargetClient
+  now?: () => Date
+  logError?: (message: string, error: unknown) => void
+} = {}): AutoRetargetWorker {
+  const store = dependencies.store ?? createDrizzleAutoRetargetStore()
+  const service = dependencies.service ?? createAutoRetargetService({
+    store,
+    github: dependencies.github,
+    now: dependencies.now,
+  })
+  const logError = dependencies.logError ?? ((message, error) => console.error(message, error))
+
+  return {
+    async runOnce() {
+      const work = await store.loadWork()
+      for (const request of work) {
+        try {
+          await service.retargetMergedParent(request)
+        }
+        catch (error) {
+          logError(`auto-retarget failed for ${request.parentPullRequestId}`, error)
+        }
+      }
+      return work.length
+    },
+  }
+}
+
+export function startAutoRetargetWorker(dependencies: {
+  worker?: AutoRetargetWorker
+  intervalMs?: number
+  logError?: (message: string, error: unknown) => void
+} = {}): () => void {
+  const worker = dependencies.worker ?? createAutoRetargetWorker()
+  const intervalMs = dependencies.intervalMs ?? DEFAULT_WORK_INTERVAL_MS
+  const logError = dependencies.logError ?? ((message, error) => console.error(message, error))
+  let running = false
+
+  const run = async () => {
+    if (running) return
+    running = true
+    try {
+      await worker.runOnce()
+    }
+    catch (error) {
+      logError('auto-retarget worker failed', error)
+    }
+    finally {
+      running = false
+    }
+  }
+
+  void run()
+  const timer = setInterval(() => void run(), intervalMs)
+  timer.unref()
+  return () => clearInterval(timer)
 }
 
 function finish(step: Awaited<ReturnType<AutoRetargetStore['prepare']>>) {

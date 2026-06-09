@@ -64,12 +64,10 @@ function mergedParentRetarget(
   delivery: WebhookDelivery,
   syncPlan: WebhookSyncPlan,
 ): MergedParentRetarget | null {
-  if (delivery.event !== 'pull_request' || delivery.action !== 'closed') return null
-  const parent = syncPlan.pullRequests[0]?.pullRequest
-  if (!parent || parent.state !== 'MERGED') return null
+  const request = syncPlan.autoRetargetRequests[0]
+  if (!request) return null
   return {
     deliveryId: delivery.deliveryId,
-    parentPullRequestId: parent.githubPullRequestId,
-    desiredBaseRefName: parent.baseRefName,
+    ...request,
   }
 }

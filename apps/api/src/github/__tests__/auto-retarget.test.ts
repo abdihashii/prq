@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AutoRetargetError, createAutoRetargetService } from '../auto-retarget'
+import {
+  AutoRetargetError,
+  createAutoRetargetService,
+  createAutoRetargetWorker,
+} from '../auto-retarget'
 import type {
+  AutoRetargetService,
   AutoRetargetStep,
   AutoRetargetStore,
   GitHubRetargetClient,
@@ -50,7 +55,7 @@ describe('auto-retarget service', () => {
     }
   })
 
-  it('throws recorded failures so GitHub can redeliver the webhook', async () => {
+  it('throws recorded failures while durable work remains retryable', async () => {
     const store = fakeStore([
       { kind: 'continue', attemptId: 1 },
       { kind: 'failed', message: 'GitHub unavailable' },
@@ -60,11 +65,32 @@ describe('auto-retarget service', () => {
     await expect(service.retargetMergedParent(ARGS))
       .rejects.toEqual(new AutoRetargetError('GitHub unavailable'))
   })
+
+  it('drains durable work and isolates individual failures', async () => {
+    const store = fakeStore([])
+    vi.mocked(store.loadWork).mockResolvedValue([
+      ARGS,
+      { ...ARGS, parentPullRequestId: 'PR_other' },
+    ])
+    const service: AutoRetargetService = {
+      retargetMergedParent: vi.fn()
+        .mockRejectedValueOnce(new Error('temporary failure'))
+        .mockResolvedValueOnce('succeeded'),
+    }
+    const logError = vi.fn()
+    const worker = createAutoRetargetWorker({ store, service, logError })
+
+    await expect(worker.runOnce()).resolves.toBe(2)
+
+    expect(service.retargetMergedParent).toHaveBeenCalledTimes(2)
+    expect(logError).toHaveBeenCalledOnce()
+  })
 })
 
 function fakeStore(steps: AutoRetargetStep[]): AutoRetargetStore {
   const next = (): AutoRetargetStep => steps.shift() ?? { kind: 'already-complete' }
   return {
+    loadWork: vi.fn(async () => []),
     prepare: vi.fn(async () => next()),
     validate: vi.fn(async () => next()),
     apply: vi.fn(async () => next()),

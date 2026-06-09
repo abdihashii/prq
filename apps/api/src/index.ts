@@ -8,6 +8,7 @@ import {
   missingGitHubAppAuthConfig,
   missingGitHubAppMutationConfig,
 } from './config'
+import { startAutoRetargetWorker } from './github/auto-retarget'
 import { auth } from './routes/auth'
 import { prs } from './routes/prs'
 import { user } from './routes/user'
@@ -47,6 +48,8 @@ app.route('/api', prs)
 app.route('/api', auth)
 app.route('/api', user)
 app.route('/api', webhooks)
+
+startAutoRetargetWorker()
 
 serve({ fetch: app.fetch, port: 3001 }, ({ port }) => {
   console.log(`prq api listening on :${port}`)

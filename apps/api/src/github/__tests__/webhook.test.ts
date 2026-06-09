@@ -319,6 +319,33 @@ describe('GitHub webhook projections', () => {
     })
   })
 
+  it('projects a durable retarget request only for a merged close event', () => {
+    const base = pullRequestPayload()
+    const payload = {
+      ...base,
+      action: 'closed',
+      pull_request: {
+        ...base.pull_request,
+        state: 'closed',
+        merged: true,
+        base: { ref: 'main' },
+      },
+    }
+
+    expect(normalizeWebhook(describeDelivery('d', 'pull_request', payload)).autoRetargetRequests)
+      .toEqual([{ parentPullRequestId: 'PR_one', desiredBaseRefName: 'main' }])
+    expect(normalizeWebhook(describeDelivery('d', 'pull_request_review', {
+      ...payload,
+      action: 'submitted',
+      review: {
+        node_id: 'PRR_review',
+        user: { login: 'reviewer' },
+        state: 'approved',
+        submitted_at: '2026-06-06T11:30:00Z',
+      },
+    })).autoRetargetRequests).toEqual([])
+  })
+
   it('filters deleted or unidentifiable review-request principals', () => {
     const base = pullRequestPayload()
     const payload = {
@@ -444,6 +471,7 @@ function emptyPlan(): WebhookSyncPlan {
     deletedRepositoryIds: [],
     pullRequests: [],
     reviews: [],
+    autoRetargetRequests: [],
   }
 }
 

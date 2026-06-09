@@ -10,6 +10,10 @@ export interface AutoRetargetService {
   retargetMergedParent(args: MergedParentRetarget): Promise<AutoRetargetResult>
 }
 
+export interface AutoRetargetWorker {
+  runOnce(): Promise<number>
+}
+
 export interface AutoRetargetTarget {
   attemptId: number
   githubInstallationId: string
@@ -38,6 +42,7 @@ export type AutoRetargetStep =
   | { kind: 'failed', message: string }
 
 export interface AutoRetargetStore {
+  loadWork(): Promise<MergedParentRetarget[]>
   prepare(args: MergedParentRetarget, now: Date): Promise<AutoRetargetStep>
   validate(
     attemptId: number,
