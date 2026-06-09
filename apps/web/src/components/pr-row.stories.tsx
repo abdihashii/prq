@@ -60,9 +60,11 @@ export const ReadyToMerge: Story = {
 
 export const AutoRetargeted: Story = {
   args: {
-    pr: READY_TO_MERGE,
+    pr: {
+      ...READY_TO_MERGE,
+      autoRetarget: { previousBaseRefName: 'feat/dashboard-stack-grouping' },
+    },
     bucket: 'ready',
-    autoRetargetedFromBaseRefName: 'feat/dashboard-stack-grouping',
   },
 }
 

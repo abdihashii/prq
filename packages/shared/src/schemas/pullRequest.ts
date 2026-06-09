@@ -37,6 +37,9 @@ export const PullRequestSchema = z.object({
   commitsTotalCount: z.number().int().nonnegative(),
   commentsTotalCount: z.number().int().nonnegative(),
   requestedReviewers: z.array(RequestedReviewerSchema),
+  autoRetarget: z.object({
+    previousBaseRefName: z.string(),
+  }).optional(),
 
   bucket: BucketSchema,
   viewerHasReviewed: z.boolean(),

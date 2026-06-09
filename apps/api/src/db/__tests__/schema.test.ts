@@ -59,6 +59,8 @@ describe('database schema', () => {
 
   it('models later webhook and retarget audit state without runtime behavior', () => {
     expect(autoRetargetStatusEnum.enumValues).toEqual([
+      'pending',
+      'applying',
       'succeeded',
       'failed',
       'skipped',

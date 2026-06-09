@@ -1,6 +1,7 @@
-import { and, eq, isNull, lte, ne, or } from 'drizzle-orm'
+import { and, eq, inArray, isNull, lte, ne, or } from 'drizzle-orm'
 import { getDatabase, type Database } from '../../db'
 import {
+  autoRetargetEvents,
   githubInstallations,
   pullRequestReviewRequests,
   pullRequestReviews,
@@ -88,6 +89,12 @@ export function createDrizzleWebhookStore(db: Database = getDatabase().db): Webh
           }
         }
 
+        // Persist work before the processed transition so the focused worker
+        // closes the post-commit process-exit gap.
+        for (const request of syncPlan.autoRetargetRequests) {
+          await scheduleAutoRetarget(tx, deliveryId, request, now)
+        }
+
         for (const review of syncPlan.reviews) {
           await tx.insert(pullRequestReviews).values({
             ...review,
@@ -127,6 +134,37 @@ export function createDrizzleWebhookStore(db: Database = getDatabase().db): Webh
       ))
     },
   }
+}
+
+async function scheduleAutoRetarget(
+  db: WebhookDb,
+  deliveryId: string,
+  request: WebhookSyncPlan['autoRetargetRequests'][number],
+  now: Date,
+): Promise<void> {
+  const [parent] = await db.select({ id: pullRequests.githubPullRequestId })
+    .from(pullRequests)
+    .where(eq(pullRequests.githubPullRequestId, request.parentPullRequestId))
+    .limit(1)
+    .for('update')
+  if (!parent) return
+
+  const [existing] = await db.select({ id: autoRetargetEvents.id })
+    .from(autoRetargetEvents)
+    .where(and(
+      eq(autoRetargetEvents.parentGithubPullRequestId, parent.id),
+      inArray(autoRetargetEvents.status, ['pending', 'applying', 'succeeded']),
+    ))
+    .limit(1)
+  if (existing) return
+
+  await db.insert(autoRetargetEvents).values({
+    parentGithubPullRequestId: parent.id,
+    deliveryId,
+    nextBaseRefName: request.desiredBaseRefName,
+    status: 'pending',
+    createdAt: now,
+  })
 }
 
 async function upsertRepository(db: WebhookDb, repository: RepositorySnapshot, now: Date) {

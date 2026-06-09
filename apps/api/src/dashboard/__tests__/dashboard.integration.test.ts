@@ -11,6 +11,7 @@ import {
   TEST_DATABASE_URL,
 } from '../../db'
 import {
+  autoRetargetEvents,
   githubInstallations,
   githubSessions,
   githubUserRepositories,
@@ -294,6 +295,65 @@ describe.skipIf(!RUN_INTEGRATION)('database-backed dashboard integration', () =>
       { kind: 'pr', pr: { id: 'PR_webhook', title: 'Webhook-ingested PR' } },
     ])
   })
+
+  it('projects only successful auto-retarget history through the existing indicator contract', async () => {
+    await client.db.insert(webhookDeliveries).values([
+      {
+        deliveryId: 'retarget-success',
+        event: 'pull_request',
+        action: 'closed',
+        payload: {},
+        status: 'processed',
+      },
+      {
+        deliveryId: 'retarget-failed',
+        event: 'pull_request',
+        action: 'closed',
+        payload: {},
+        status: 'processed',
+      },
+    ])
+    await client.db.insert(autoRetargetEvents).values([
+      {
+        githubPullRequestId: 'PR_child',
+        parentGithubPullRequestId: 'PR_parent',
+        deliveryId: 'retarget-success',
+        previousBaseRefName: 'feature/older-parent',
+        nextBaseRefName: 'feature/parent',
+        status: 'succeeded',
+      },
+      {
+        githubPullRequestId: 'PR_parent',
+        deliveryId: 'retarget-failed',
+        previousBaseRefName: 'feature/failed-parent',
+        nextBaseRefName: 'main',
+        status: 'failed',
+        errorMessage: 'GitHub unavailable',
+      },
+    ])
+
+    const dashboard = await createDashboardService({
+      store: createDrizzleDashboardStore(client.db),
+      now: () => NOW,
+    }).getDashboard({
+      viewer: { githubId: 'U_haji', login: 'haji' },
+      repositoryAllowlist: new Set(['acme/rocket']),
+    })
+
+    expect(dashboard.buckets.waiting).toMatchObject([{
+      kind: 'stack',
+      root: {
+        pr: { id: 'PR_parent' },
+        children: [{
+          pr: {
+            id: 'PR_child',
+            autoRetarget: { previousBaseRefName: 'feature/older-parent' },
+          },
+        }],
+      },
+    }])
+    expect(JSON.stringify(dashboard.buckets)).not.toContain('feature/failed-parent')
+  })
 })
 
 async function seedStoredDashboard(client: DatabaseClient) {
@@ -432,6 +492,7 @@ function storedPr(
 }
 
 async function cleanTestRows(client: DatabaseClient) {
+  await client.db.delete(autoRetargetEvents)
   await client.db.delete(pullRequestReviews)
   await client.db.delete(pullRequestReviewRequests)
   await client.db.delete(pullRequests)

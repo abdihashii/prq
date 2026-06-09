@@ -3,7 +3,9 @@ import {
   LOCAL_GITHUB_CALLBACK_URL,
   LOCAL_WEB_URL,
   missingGitHubAppAuthConfig,
+  missingGitHubAppMutationConfig,
   resolveGitHubAppAuthConfig,
+  resolveGitHubAppMutationConfig,
   resolveGitHubWebhookSecret,
 } from '../config'
 
@@ -56,5 +58,25 @@ describe('resolveGitHubWebhookSecret', () => {
     expect(resolveGitHubWebhookSecret({})).toBe('')
     expect(resolveGitHubWebhookSecret({ PRQ_GITHUB_WEBHOOK_SECRET: ' secret-1 ' }))
       .toBe('secret-1')
+  })
+})
+
+describe('resolveGitHubAppMutationConfig', () => {
+  it('normalizes encoded private-key newlines without requiring mutation config at import time', () => {
+    expect(resolveGitHubAppMutationConfig({})).toEqual({ clientId: '', privateKey: '' })
+    expect(resolveGitHubAppMutationConfig({
+      PRQ_GITHUB_CLIENT_ID: ' client-1 ',
+      PRQ_GITHUB_PRIVATE_KEY: ' line-1\\nline-2 ',
+    })).toEqual({
+      clientId: 'client-1',
+      privateKey: 'line-1\nline-2',
+    })
+  })
+
+  it('reports missing GitHub App mutation credentials', () => {
+    expect(missingGitHubAppMutationConfig(resolveGitHubAppMutationConfig({}))).toEqual([
+      'PRQ_GITHUB_CLIENT_ID',
+      'PRQ_GITHUB_PRIVATE_KEY',
+    ])
   })
 })

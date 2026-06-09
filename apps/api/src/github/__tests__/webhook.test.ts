@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 import { ingestGitHubWebhook } from '../webhook'
+import type { AutoRetargetService } from '../auto-retarget'
 import {
   describeDelivery,
   normalizeWebhook,
@@ -144,6 +145,60 @@ describe('ingestGitHubWebhook', () => {
     expect(store.markDeliveryFailed).toHaveBeenCalledWith('delivery-1', original, NOW)
     consoleError.mockRestore()
   })
+
+  it('retargets only after a verified merged-PR delivery is persisted', async () => {
+    const store = fakeStore()
+    const autoRetarget = fakeAutoRetarget()
+    const payload = {
+      ...pullRequestPayload(),
+      action: 'closed',
+      pull_request: {
+        ...pullRequestPayload().pull_request,
+        state: 'closed',
+        merged: true,
+        base: { ref: 'main' },
+      },
+    }
+
+    await ingestGitHubWebhook(signedRequest(JSON.stringify(payload), 'pull_request'), {
+      secret: SECRET,
+      store,
+      autoRetarget,
+      now: () => NOW,
+    })
+
+    expect(store.applyDelivery).toHaveBeenCalledBefore(
+      vi.mocked(autoRetarget.retargetMergedParent),
+    )
+    expect(autoRetarget.retargetMergedParent).toHaveBeenCalledWith({
+      deliveryId: 'delivery-1',
+      parentPullRequestId: 'PR_one',
+      desiredBaseRefName: 'main',
+    })
+  })
+
+  it('does not mark processed webhook state failed when retargeting fails', async () => {
+    const store = fakeStore()
+    const autoRetarget = fakeAutoRetarget()
+    vi.mocked(autoRetarget.retargetMergedParent).mockRejectedValue(new Error('GitHub unavailable'))
+    const payload = {
+      ...pullRequestPayload(),
+      action: 'closed',
+      pull_request: {
+        ...pullRequestPayload().pull_request,
+        state: 'closed',
+        merged: true,
+      },
+    }
+
+    await expect(ingestGitHubWebhook(signedRequest(JSON.stringify(payload), 'pull_request'), {
+      secret: SECRET,
+      store,
+      autoRetarget,
+    })).rejects.toThrow('GitHub unavailable')
+
+    expect(store.markDeliveryFailed).not.toHaveBeenCalled()
+  })
 })
 
 describe('GitHub webhook projections', () => {
@@ -264,6 +319,33 @@ describe('GitHub webhook projections', () => {
     })
   })
 
+  it('projects a durable retarget request only for a merged close event', () => {
+    const base = pullRequestPayload()
+    const payload = {
+      ...base,
+      action: 'closed',
+      pull_request: {
+        ...base.pull_request,
+        state: 'closed',
+        merged: true,
+        base: { ref: 'main' },
+      },
+    }
+
+    expect(normalizeWebhook(describeDelivery('d', 'pull_request', payload)).autoRetargetRequests)
+      .toEqual([{ parentPullRequestId: 'PR_one', desiredBaseRefName: 'main' }])
+    expect(normalizeWebhook(describeDelivery('d', 'pull_request_review', {
+      ...payload,
+      action: 'submitted',
+      review: {
+        node_id: 'PRR_review',
+        user: { login: 'reviewer' },
+        state: 'approved',
+        submitted_at: '2026-06-06T11:30:00Z',
+      },
+    })).autoRetargetRequests).toEqual([])
+  })
+
   it('filters deleted or unidentifiable review-request principals', () => {
     const base = pullRequestPayload()
     const payload = {
@@ -351,6 +433,12 @@ function fakeStore(): WebhookStore {
   }
 }
 
+function fakeAutoRetarget(): AutoRetargetService {
+  return {
+    retargetMergedParent: vi.fn().mockResolvedValue('succeeded'),
+  }
+}
+
 function signedRequest(
   body: string,
   event: string,
@@ -383,6 +471,7 @@ function emptyPlan(): WebhookSyncPlan {
     deletedRepositoryIds: [],
     pullRequests: [],
     reviews: [],
+    autoRetargetRequests: [],
   }
 }
 

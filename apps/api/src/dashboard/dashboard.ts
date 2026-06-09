@@ -11,6 +11,7 @@ import {
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { getDatabase, type Database } from '../db'
 import {
+  autoRetargetEvents,
   githubInstallations,
   githubUserRepositories,
   pullRequestReviewRequests,
@@ -194,7 +195,7 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
       if (rows.length === 0) return { ownedRepositories, pullRequests: [] }
 
       const ids = rows.map(row => row.id)
-      const [reviewRequests, viewerReviews] = await Promise.all([
+      const [reviewRequests, viewerReviews, autoRetargetHistory] = await Promise.all([
         db.select({
           pullRequestId: pullRequestReviewRequests.githubPullRequestId,
           kind: pullRequestReviewRequests.reviewerKind,
@@ -215,6 +216,15 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
             sql`lower(${pullRequestReviews.authorLogin}) = ${normalizedViewerLogin}`,
           ))
           .orderBy(asc(pullRequestReviews.githubReviewId)),
+        db.select({
+          pullRequestId: autoRetargetEvents.githubPullRequestId,
+          previousBaseRefName: autoRetargetEvents.previousBaseRefName,
+        }).from(autoRetargetEvents)
+          .where(and(
+            inArray(autoRetargetEvents.githubPullRequestId, ids),
+            eq(autoRetargetEvents.status, 'succeeded'),
+          ))
+          .orderBy(desc(autoRetargetEvents.id)),
       ])
 
       const requestsByPullRequest = new Map<string, RequestedReviewer[]>()
@@ -229,6 +239,15 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
         const reviews = reviewsByPullRequest.get(review.pullRequestId) ?? []
         reviews.push(review.submittedAt)
         reviewsByPullRequest.set(review.pullRequestId, reviews)
+      }
+
+      const autoRetargetByPullRequest = new Map<string, string>()
+      for (const event of autoRetargetHistory) {
+        if (event.pullRequestId !== null
+          && event.previousBaseRefName !== null
+          && !autoRetargetByPullRequest.has(event.pullRequestId)) {
+          autoRetargetByPullRequest.set(event.pullRequestId, event.previousBaseRefName)
+        }
       }
 
       return {
@@ -256,6 +275,7 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
           unresolvedThreadCount: row.unresolvedThreadCount,
           requestedReviewers: requestsByPullRequest.get(row.id) ?? [],
           viewerReviewSubmittedAt: reviewsByPullRequest.get(row.id) ?? [],
+          autoRetargetPreviousBaseRefName: autoRetargetByPullRequest.get(row.id) ?? null,
         })),
       }
     },
@@ -357,6 +377,9 @@ function projectPullRequest(stored: StoredPullRequest, viewerLogin: string): Pul
     newCommentsSincePush: 0,
     unresolvedThreadCount: stored.unresolvedThreadCount,
     unresolvedThreadAuthors: [],
+    ...(stored.autoRetargetPreviousBaseRefName === null
+      ? {}
+      : { autoRetarget: { previousBaseRefName: stored.autoRetargetPreviousBaseRefName } }),
   }
 
   const bucket = assignBucket(projected, viewerLogin)

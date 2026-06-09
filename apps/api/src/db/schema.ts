@@ -11,6 +11,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 export const githubAccountTypeEnum = pgEnum('github_account_type', [
   'User',
@@ -65,6 +66,8 @@ export const webhookDeliveryStatusEnum = pgEnum('webhook_delivery_status', [
 ])
 
 export const autoRetargetStatusEnum = pgEnum('auto_retarget_status', [
+  'pending',
+  'applying',
   'succeeded',
   'failed',
   'skipped',
@@ -257,9 +260,9 @@ export const webhookDeliveries = pgTable('webhook_deliveries', {
 
 export const autoRetargetEvents = pgTable('auto_retarget_events', {
   id: serial('id').primaryKey(),
-  githubPullRequestId: text('github_pull_request_id').notNull().references(
+  githubPullRequestId: text('github_pull_request_id').references(
     () => pullRequests.githubPullRequestId,
-    { onDelete: 'cascade' },
+    { onDelete: 'set null' },
   ),
   parentGithubPullRequestId: text('parent_github_pull_request_id').references(
     () => pullRequests.githubPullRequestId,
@@ -269,7 +272,7 @@ export const autoRetargetEvents = pgTable('auto_retarget_events', {
     () => webhookDeliveries.deliveryId,
     { onDelete: 'set null' },
   ),
-  previousBaseRefName: text('previous_base_ref_name').notNull(),
+  previousBaseRefName: text('previous_base_ref_name'),
   nextBaseRefName: text('next_base_ref_name').notNull(),
   status: autoRetargetStatusEnum('status').notNull(),
   errorMessage: text('error_message'),
@@ -278,4 +281,7 @@ export const autoRetargetEvents = pgTable('auto_retarget_events', {
   index('auto_retarget_events_pull_request_idx').on(table.githubPullRequestId),
   index('auto_retarget_events_parent_pull_request_idx').on(table.parentGithubPullRequestId),
   index('auto_retarget_events_delivery_idx').on(table.deliveryId),
+  uniqueIndex('auto_retarget_events_parent_succeeded_unique')
+    .on(table.parentGithubPullRequestId)
+    .where(sql`${table.status} = 'succeeded'`),
 ])

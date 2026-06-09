@@ -35,6 +35,7 @@ export interface StoredPullRequest {
   unresolvedThreadCount: number
   requestedReviewers: RequestedReviewer[]
   viewerReviewSubmittedAt: Array<Date | null>
+  autoRetargetPreviousBaseRefName: string | null
 }
 
 export interface StoredDashboardState {

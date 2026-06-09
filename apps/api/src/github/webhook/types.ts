@@ -69,6 +69,11 @@ export interface ReviewSnapshot {
   submittedAt: Date | null
 }
 
+export interface AutoRetargetRequestSnapshot {
+  parentPullRequestId: string
+  desiredBaseRefName: string
+}
+
 /**
  * A webhook sync plan describes the complete semantic state change for one
  * delivery. Applying a plan more than once has the same result, and mutation
@@ -85,6 +90,7 @@ export interface WebhookSyncPlan {
   deletedRepositoryIds: string[]
   pullRequests: PullRequestWithReviewRequests[]
   reviews: ReviewSnapshot[]
+  autoRetargetRequests: AutoRetargetRequestSnapshot[]
 }
 
 export interface WebhookDelivery {
@@ -117,4 +123,5 @@ export const emptySyncPlan = (): WebhookSyncPlan => ({
   deletedRepositoryIds: [],
   pullRequests: [],
   reviews: [],
+  autoRetargetRequests: [],
 })

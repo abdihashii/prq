@@ -17,6 +17,11 @@ export interface GitHubAppAuthConfig {
   appSlug?: string
 }
 
+export interface GitHubAppMutationConfig {
+  clientId: string
+  privateKey: string
+}
+
 type Env = Record<string, string | undefined>
 
 export function resolveGitHubWebhookSecret(env: Env = process.env): string {
@@ -50,12 +55,31 @@ export function missingGitHubAppAuthConfig(config: GitHubAppAuthConfig): string[
   return missing
 }
 
+export function resolveGitHubAppMutationConfig(env: Env = process.env): GitHubAppMutationConfig {
+  return {
+    clientId: emptyToUndefined(env['PRQ_GITHUB_CLIENT_ID']) ?? '',
+    privateKey: normalizePrivateKey(emptyToUndefined(env['PRQ_GITHUB_PRIVATE_KEY']) ?? ''),
+  }
+}
+
+export function missingGitHubAppMutationConfig(config: GitHubAppMutationConfig): string[] {
+  const missing: string[] = []
+  if (!config.clientId) missing.push('PRQ_GITHUB_CLIENT_ID')
+  if (!config.privateKey) missing.push('PRQ_GITHUB_PRIVATE_KEY')
+  return missing
+}
+
 export const githubAppAuthConfig = resolveGitHubAppAuthConfig()
+export const githubAppMutationConfig = resolveGitHubAppMutationConfig()
 export const githubWebhookSecret = resolveGitHubWebhookSecret()
 
 function emptyToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
   return trimmed === '' ? undefined : trimmed
+}
+
+function normalizePrivateKey(value: string): string {
+  return value.replaceAll('\\n', '\n')
 }
 
 function resolveHttpUrl(

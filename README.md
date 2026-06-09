@@ -22,11 +22,11 @@ The product direction is locked in [docs/spec.md](docs/spec.md). The setup below
   3. Set **Setup URL** to `http://localhost:3001/api/auth/github/setup`.
   4. Enable **Redirect on update**.
   5. Keep **Request user authorization (OAuth) during installation** disabled.
-  6. Grant read-only repository permissions for Checks, Commit statuses, Contents, and Pull requests.
+  6. Grant read-only repository permissions for Checks, Commit statuses, and Contents. Grant Pull requests read and write permission so PRQ can retarget stacked PRs.
   7. Set **Webhook URL** to your HTTPS tunnel for `http://localhost:3001/api/webhooks/github`.
   8. Set webhook **Content type** to `application/json` and choose a webhook secret.
   9. Subscribe to Installation, Installation repositories, Repository, Pull request, and Pull request review events.
-  10. Copy the **Client ID**, generate a **Client secret**, and add the webhook secret to `apps/api/.env`.
+  10. Copy the **Client ID**, generate a **Client secret** and **Private key**, and add them with the webhook secret to `apps/api/.env`.
 
 ## Setup
 
@@ -35,7 +35,7 @@ git clone <your-fork-or-this-repo>.git
 cd prq
 pnpm install
 cp apps/api/.env.example apps/api/.env
-# paste your GitHub App Client ID, Client secret, and webhook secret into apps/api/.env
+# paste your GitHub App Client ID, Client secret, Private key, and webhook secret into apps/api/.env
 docker compose up -d postgres
 pnpm db:migrate
 ```
