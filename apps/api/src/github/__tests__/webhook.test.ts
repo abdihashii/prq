@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 import { ingestGitHubWebhook } from '../webhook'
+import type { AutoRetargetService } from '../auto-retarget'
 import {
   describeDelivery,
   normalizeWebhook,
@@ -143,6 +144,60 @@ describe('ingestGitHubWebhook', () => {
 
     expect(store.markDeliveryFailed).toHaveBeenCalledWith('delivery-1', original, NOW)
     consoleError.mockRestore()
+  })
+
+  it('retargets only after a verified merged-PR delivery is persisted', async () => {
+    const store = fakeStore()
+    const autoRetarget = fakeAutoRetarget()
+    const payload = {
+      ...pullRequestPayload(),
+      action: 'closed',
+      pull_request: {
+        ...pullRequestPayload().pull_request,
+        state: 'closed',
+        merged: true,
+        base: { ref: 'main' },
+      },
+    }
+
+    await ingestGitHubWebhook(signedRequest(JSON.stringify(payload), 'pull_request'), {
+      secret: SECRET,
+      store,
+      autoRetarget,
+      now: () => NOW,
+    })
+
+    expect(store.applyDelivery).toHaveBeenCalledBefore(
+      vi.mocked(autoRetarget.retargetMergedParent),
+    )
+    expect(autoRetarget.retargetMergedParent).toHaveBeenCalledWith({
+      deliveryId: 'delivery-1',
+      parentPullRequestId: 'PR_one',
+      desiredBaseRefName: 'main',
+    })
+  })
+
+  it('does not mark processed webhook state failed when retargeting fails', async () => {
+    const store = fakeStore()
+    const autoRetarget = fakeAutoRetarget()
+    vi.mocked(autoRetarget.retargetMergedParent).mockRejectedValue(new Error('GitHub unavailable'))
+    const payload = {
+      ...pullRequestPayload(),
+      action: 'closed',
+      pull_request: {
+        ...pullRequestPayload().pull_request,
+        state: 'closed',
+        merged: true,
+      },
+    }
+
+    await expect(ingestGitHubWebhook(signedRequest(JSON.stringify(payload), 'pull_request'), {
+      secret: SECRET,
+      store,
+      autoRetarget,
+    })).rejects.toThrow('GitHub unavailable')
+
+    expect(store.markDeliveryFailed).not.toHaveBeenCalled()
   })
 })
 
@@ -348,6 +403,12 @@ function fakeStore(): WebhookStore {
     reserveDelivery: vi.fn().mockResolvedValue(undefined),
     applyDelivery: vi.fn().mockResolvedValue('processed'),
     markDeliveryFailed: vi.fn().mockResolvedValue(undefined),
+  }
+}
+
+function fakeAutoRetarget(): AutoRetargetService {
+  return {
+    retargetMergedParent: vi.fn().mockResolvedValue('succeeded'),
   }
 }
 

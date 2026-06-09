@@ -524,6 +524,7 @@ const AUTO_RETARGET_CHILD = build({
   mergeable: 'MERGEABLE',
   statusCheckRollup: { state: 'SUCCESS' },
   commentsTotalCount: 6,
+  autoRetarget: { previousBaseRefName: 'feat/dashboard-stack-grouping' },
 })
 
 export const AUTO_RETARGET_STACK: StackNode = {
@@ -531,7 +532,6 @@ export const AUTO_RETARGET_STACK: StackNode = {
   children: [
     {
       pr: AUTO_RETARGET_CHILD,
-      autoRetarget: { previousBaseRefName: 'feat/dashboard-stack-grouping' },
     },
   ],
 }

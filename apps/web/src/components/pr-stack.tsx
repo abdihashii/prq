@@ -27,11 +27,7 @@ function StackNodeView({ node, bucket, depth }: StackNodeViewProps) {
 
   return (
     <div>
-      <PrRow
-        pr={node.pr}
-        bucket={bucket}
-        autoRetargetedFromBaseRefName={node.autoRetarget?.previousBaseRefName}
-      />
+      <PrRow pr={node.pr} bucket={bucket} />
       {children.length > 0 && (
         <div
           className={cn(

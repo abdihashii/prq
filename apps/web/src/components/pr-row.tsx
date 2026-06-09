@@ -37,10 +37,9 @@ function renderSuffixParts(parts: SuffixPart[]) {
 interface PrRowProps {
   pr: PullRequest
   bucket: Bucket
-  autoRetargetedFromBaseRefName?: string
 }
 
-export function PrRow({ pr, bucket, autoRetargetedFromBaseRefName }: PrRowProps) {
+export function PrRow({ pr, bucket }: PrRowProps) {
   const ciKind = getCiStatusKind(pr)
   const ci = ciKind ? CI_ICON[ciKind] : null
   const badgeLabel = getReviewBadgeLabel(pr)
@@ -85,12 +84,12 @@ export function PrRow({ pr, bucket, autoRetargetedFromBaseRefName }: PrRowProps)
         {authorOrBase}
         {bucketSuffix && <>{' · '}{renderSuffixParts(bucketSuffix)}</>}
         {hint && <>{' · '}{renderSuffixParts(hint)}</>}
-        {autoRetargetedFromBaseRefName && (
+        {pr.autoRetarget && (
           <>
             {' · '}
             <Badge variant="outline" className="align-middle font-normal text-muted-foreground">
               <GitBranch className="size-3" />
-              auto-retargeted from {autoRetargetedFromBaseRefName}
+              auto-retargeted from {pr.autoRetarget.previousBaseRefName}
             </Badge>
           </>
         )}

@@ -3,8 +3,10 @@ import { Hono } from 'hono'
 import { csrf } from 'hono/csrf'
 import {
   githubAppAuthConfig,
+  githubAppMutationConfig,
   githubWebhookSecret,
   missingGitHubAppAuthConfig,
+  missingGitHubAppMutationConfig,
 } from './config'
 import { auth } from './routes/auth'
 import { prs } from './routes/prs'
@@ -28,6 +30,13 @@ if (process.env['NODE_ENV'] === 'production' && missingGitHubAppConfig.length > 
 }
 if (process.env['NODE_ENV'] === 'production' && !githubWebhookSecret) {
   console.error('GitHub App webhooks are missing required production config: PRQ_GITHUB_WEBHOOK_SECRET')
+  process.exit(1)
+}
+const missingGitHubMutationConfig = missingGitHubAppMutationConfig(githubAppMutationConfig)
+if (process.env['NODE_ENV'] === 'production' && missingGitHubMutationConfig.length > 0) {
+  console.error(
+    `GitHub App mutations are missing required production config: ${missingGitHubMutationConfig.join(', ')}`,
+  )
   process.exit(1)
 }
 

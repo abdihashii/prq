@@ -1,13 +1,8 @@
 import type { Bucket, PullRequest } from '@prq/shared'
 
-export interface StackAutoRetarget {
-  previousBaseRefName: string
-}
-
 export interface StackNode {
   pr: PullRequest
   children?: StackNode[]
-  autoRetarget?: StackAutoRetarget
 }
 
 export type DashboardDisplayItem =

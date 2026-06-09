@@ -36,6 +36,7 @@ function storedPullRequest(overrides: Partial<StoredPullRequest> = {}): StoredPu
     unresolvedThreadCount: 4,
     requestedReviewers: [],
     viewerReviewSubmittedAt: [],
+    autoRetargetPreviousBaseRefName: null,
     ...overrides,
   }
 }
@@ -183,6 +184,51 @@ describe('database dashboard projection', () => {
         },
       },
       { kind: 'pr', pr: { id: 'PR_solo' } },
+    ])
+  })
+
+  it('projects successful retarget history onto flat and stacked pull requests', async () => {
+    const dashboard = await serviceWithState({
+      pullRequests: [
+        storedPullRequest({
+          id: 'PR_parent',
+          headRefName: 'feature/parent',
+        }),
+        storedPullRequest({
+          id: 'PR_child',
+          baseRefName: 'feature/parent',
+          headRefName: 'feature/child',
+          autoRetargetPreviousBaseRefName: 'feature/older-parent',
+        }),
+        storedPullRequest({
+          id: 'PR_flat',
+          autoRetargetPreviousBaseRefName: 'feature/flat-parent',
+        }),
+      ],
+    }).getDashboard({
+      viewer: VIEWER,
+      repositoryAllowlist: new Set(['acme/rocket']),
+    })
+
+    expect(dashboard.buckets.waiting).toMatchObject([
+      {
+        kind: 'stack',
+        root: {
+          children: [{
+            pr: {
+              id: 'PR_child',
+              autoRetarget: { previousBaseRefName: 'feature/older-parent' },
+            },
+          }],
+        },
+      },
+      {
+        kind: 'pr',
+        pr: {
+          id: 'PR_flat',
+          autoRetarget: { previousBaseRefName: 'feature/flat-parent' },
+        },
+      },
     ])
   })
 })
