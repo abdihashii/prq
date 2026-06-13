@@ -4,11 +4,17 @@
   "main": "src/worker.ts",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
+  // The web app loads from prq.app and calls the API with relative /api paths, so
+  // the worker serves prq.app/api/* (same origin: cookies + csrf just work).
+  "routes": [
+    { "pattern": "prq.app/api/*", "zone_name": "prq.app" }
+  ],
+  // vars apply to `wrangler deploy` (production). Local `wrangler dev` overrides
+  // these via .dev.vars. Secrets (PRQ_GITHUB_*) are set with `wrangler secret put`.
   "vars": {
-    "PRQ_WEB_URL": "http://localhost:5173",
-    "PRQ_GITHUB_CALLBACK_URL": "http://localhost:8787/api/auth/github/callback",
-    "PRQ_DATABASE_SSL": "false",
-    "PRQ_DATABASE_MAX_CONNECTIONS": "10"
+    "NODE_ENV": "production",
+    "PRQ_WEB_URL": "https://prq.app",
+    "PRQ_GITHUB_CALLBACK_URL": "https://prq.app/api/auth/github/callback"
   },
   "hyperdrive": [
     {
