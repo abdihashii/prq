@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getAuthenticatedViewer, UnauthorizedError } from '../../auth/session'
+import type { AppEnv, RequestContext } from '../../request-context'
 import { user } from '../user'
 
 vi.mock('../../auth/session', async importOriginal => ({
@@ -9,7 +10,14 @@ vi.mock('../../auth/session', async importOriginal => ({
 }))
 
 const mockedViewer = vi.mocked(getAuthenticatedViewer)
-const makeApp = () => new Hono().route('/api', user)
+const makeApp = () => {
+  const app = new Hono<AppEnv>()
+  app.use('/api/*', async (c, next) => {
+    c.set('ctx', { authDeps: {} } as unknown as RequestContext)
+    await next()
+  })
+  return app.route('/api', user)
+}
 
 beforeEach(() => {
   mockedViewer.mockReset()

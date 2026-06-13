@@ -1,11 +1,12 @@
 import { type Context, Hono } from 'hono'
 import { getAuthenticatedViewer, UnauthorizedError } from '../auth/session'
+import type { AppEnv } from '../request-context'
 
-export const user = new Hono()
+export const user = new Hono<AppEnv>()
 
 user.get('/user', async (c) => {
   try {
-    const { login } = await getAuthenticatedViewer(c)
+    const { login } = await getAuthenticatedViewer(c, c.var.ctx.authDeps)
     return c.json({ login })
   }
   catch (err) {
@@ -13,7 +14,7 @@ user.get('/user', async (c) => {
   }
 })
 
-function mapError(c: Context, err: unknown) {
+function mapError(c: Context<AppEnv>, err: unknown) {
   if (err instanceof UnauthorizedError) {
     return c.json(
       { error: { code: 'BAD_CREDENTIALS', message: 'Not signed in' } },

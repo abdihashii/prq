@@ -12,7 +12,7 @@ import { createDrizzleWebhookStore } from './webhook/store'
 import type { WebhookStore } from './webhook/types'
 import type { WebhookDelivery, WebhookSyncPlan } from './webhook/types'
 
-interface WebhookDependencies {
+export interface WebhookDependencies {
   secret?: string
   store?: WebhookStore
   autoRetarget?: AutoRetargetService

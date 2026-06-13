@@ -117,6 +117,17 @@ export function assertRequiredConfig(
   }
 }
 
+/**
+ * Whether the resolved environment is production. Centralizes the NODE_ENV read
+ * so cookie and security policy derive from one place instead of scattered globals.
+ *
+ * @param env - Environment record (c.env on Workers, process.env on Node).
+ * @returns True when NODE_ENV is exactly "production".
+ */
+export function isProductionEnv(env: Env = process.env): boolean {
+  return env['NODE_ENV']?.trim() === 'production'
+}
+
 export const githubAppAuthConfig = resolveGitHubAppAuthConfig()
 export const githubAppMutationConfig = resolveGitHubAppMutationConfig()
 export const githubWebhookSecret = resolveGitHubWebhookSecret()
