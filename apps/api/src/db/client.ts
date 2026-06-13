@@ -11,13 +11,24 @@ export interface DatabaseClient {
   close: () => Promise<void>
 }
 
+export interface PostgresDriverOptions {
+  /** Use prepared statements. Omit to keep postgres.js's default (enabled). */
+  prepare?: boolean
+  /** Fetch array/custom type OIDs on connect. Disable on Hyperdrive to save a round-trip. */
+  fetchTypes?: boolean
+}
+
 let cachedDatabase: DatabaseClient | null = null
 
-export function createDatabase(config: DatabaseConfig = resolveDatabaseConfig()): DatabaseClient {
+export function createDatabase(
+  config: DatabaseConfig = resolveDatabaseConfig(),
+  options: PostgresDriverOptions = {},
+): DatabaseClient {
   const sql = postgres(config.url, {
     max: config.maxConnections,
     ssl: config.ssl,
-    prepare: false,
+    ...(options.prepare !== undefined ? { prepare: options.prepare } : {}),
+    ...(options.fetchTypes !== undefined ? { fetch_types: options.fetchTypes } : {}),
   })
   const db = drizzle(sql, { schema })
 

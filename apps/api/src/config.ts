@@ -69,6 +69,54 @@ export function missingGitHubAppMutationConfig(config: GitHubAppMutationConfig):
   return missing
 }
 
+export interface RequestConfig {
+  authConfig: GitHubAppAuthConfig
+  mutationConfig: GitHubAppMutationConfig
+  webhookSecret: string
+}
+
+/**
+ * Resolve every piece of GitHub App config from a single env source, so a
+ * request (or entrypoint) reads its config in one place instead of from
+ * module-load globals.
+ *
+ * @param env - Environment record (c.env on Workers, process.env on Node).
+ * @returns The auth config, mutation config, and webhook secret.
+ */
+export function resolveRequestConfig(env: Env = process.env): RequestConfig {
+  return {
+    authConfig: resolveGitHubAppAuthConfig(env),
+    mutationConfig: resolveGitHubAppMutationConfig(env),
+    webhookSecret: resolveGitHubWebhookSecret(env),
+  }
+}
+
+/**
+ * Assert that the config required to run is present, in one place shared by both
+ * entrypoints. The OAuth Client ID is always required; the remaining secrets are
+ * required only in production. Throws with every missing var named at once.
+ *
+ * @param config - Resolved request config to validate.
+ * @param options.production - Whether production-only secrets are required.
+ */
+export function assertRequiredConfig(
+  config: RequestConfig,
+  options: { production: boolean },
+): void {
+  const missing: string[] = []
+  if (!config.authConfig.clientId) missing.push('PRQ_GITHUB_CLIENT_ID')
+  if (options.production) {
+    missing.push(...missingGitHubAppAuthConfig(config.authConfig))
+    if (!config.webhookSecret) missing.push('PRQ_GITHUB_WEBHOOK_SECRET')
+    missing.push(...missingGitHubAppMutationConfig(config.mutationConfig))
+  }
+
+  const unique = [...new Set(missing)]
+  if (unique.length > 0) {
+    throw new Error(`GitHub App config is missing required values: ${unique.join(', ')}`)
+  }
+}
+
 export const githubAppAuthConfig = resolveGitHubAppAuthConfig()
 export const githubAppMutationConfig = resolveGitHubAppMutationConfig()
 export const githubWebhookSecret = resolveGitHubWebhookSecret()
