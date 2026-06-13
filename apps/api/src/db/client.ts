@@ -17,6 +17,7 @@ export function createDatabase(config: DatabaseConfig = resolveDatabaseConfig())
   const sql = postgres(config.url, {
     max: config.maxConnections,
     ssl: config.ssl,
+    prepare: false,
   })
   const db = drizzle(sql, { schema })
 

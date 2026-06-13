@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "prq-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "PRQ_WEB_URL": "http://localhost:5173",
+    "PRQ_GITHUB_CALLBACK_URL": "http://localhost:8787/api/auth/github/callback",
+    "PRQ_DATABASE_SSL": "false",
+    "PRQ_DATABASE_MAX_CONNECTIONS": "10"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "552cfb994fb64a499ea89a1ac8529fb9",
+      "localConnectionString": "postgres://prq:prq@localhost:5432/prq_dev"
+    }
+  ]
+}
