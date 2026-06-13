@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { env, getRuntimeKey } from 'hono/adapter'
 import { csrf } from 'hono/csrf'
+import { assertRequiredConfig, isProductionEnv, resolveRequestConfig } from './config'
 import { createDatabase, getDatabase } from './db'
 import { type AppEnv, createRequestContext } from './request-context'
 import { auth } from './routes/auth'
@@ -28,6 +29,11 @@ export function createApp() {
     const configEnv = env<Record<string, string | undefined>>(c)
 
     if (getRuntimeKey() === 'workerd') {
+      // Node fails this at startup; the Worker has no startup, so validate per
+      // request (only /api/* — /health stays up as a liveness probe).
+      assertRequiredConfig(resolveRequestConfig(configEnv), {
+        production: isProductionEnv(configEnv),
+      })
       const client = createDatabase(
         {
           url: c.env.HYPERDRIVE.connectionString,
