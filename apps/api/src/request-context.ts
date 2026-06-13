@@ -11,8 +11,12 @@ import {
   createGitHubDashboardAuthorization,
   createGitHubDashboardReconciler,
 } from './dashboard/github'
-import type { Database } from './db'
-import { createAutoRetargetService } from './github/auto-retarget'
+import { createDatabase, type Database, type DatabaseClient } from './db'
+import {
+  createAutoRetargetService,
+  createAutoRetargetWorker,
+  type AutoRetargetWorker,
+} from './github/auto-retarget'
 import { createGitHubRetargetClient } from './github/auto-retarget/github'
 import { createDrizzleAutoRetargetStore } from './github/auto-retarget/store'
 import type { WebhookDependencies } from './github/webhook'
@@ -96,4 +100,48 @@ export function createRequestContext(input: {
   }
 
   return { authDeps, dashboard, webhookDeps, cookiePolicy }
+}
+
+// Workers cap concurrent external connections; Hyperdrive pools upstream, so the
+// per-isolate client stays small.
+const WORKER_MAX_CONNECTIONS = 5
+
+/**
+ * Open a per-request/-invocation database client over the Hyperdrive binding. Hides
+ * the connection string and Worker driver tuning (no SSL, small pool, Hyperdrive
+ * caches prepared statements so type fetches are skipped). Caller owns close().
+ *
+ * @param env - Worker bindings carrying the Hyperdrive handle.
+ * @returns A database client; call close() when the request/invocation ends.
+ */
+export function createWorkerDb(env: WorkerBindings): DatabaseClient {
+  return createDatabase(
+    {
+      url: env.HYPERDRIVE.connectionString,
+      ssl: false,
+      maxConnections: WORKER_MAX_CONNECTIONS,
+    },
+    { fetchTypes: false },
+  )
+}
+
+/**
+ * Build the auto-retarget worker for the Cron Trigger from a resolved environment and
+ * database handle. Mirrors createRequestContext, keeping store and GitHub-client wiring
+ * out of the Worker entry point. Returns the worker with runOnce(), not the per-event
+ * service that createRequestContext exposes.
+ *
+ * @param input.env - String env vars/secrets (c.env on Workers).
+ * @param input.db - The database handle for this invocation's lifetime.
+ * @returns An auto-retarget worker ready to runOnce().
+ */
+export function createAutoRetargetCronWorker(input: {
+  env: Record<string, string | undefined>
+  db: Database
+}): AutoRetargetWorker {
+  const { mutationConfig } = resolveRequestConfig(input.env)
+  return createAutoRetargetWorker({
+    store: createDrizzleAutoRetargetStore(input.db),
+    github: createGitHubRetargetClient({ config: mutationConfig }),
+  })
 }

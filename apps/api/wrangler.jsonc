@@ -22,5 +22,10 @@
       "id": "552cfb994fb64a499ea89a1ac8529fb9",
       "localConnectionString": "postgres://prq:prq@localhost:5432/prq_dev"
     }
-  ]
+  ],
+  // Eventual-consistency fallback for auto-retarget (webhooks are the real-time path).
+  // Runs the scheduled() handler in src/worker.ts every 5 minutes.
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
 }

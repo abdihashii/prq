@@ -2,16 +2,12 @@ import { Hono } from 'hono'
 import { env, getRuntimeKey } from 'hono/adapter'
 import { csrf } from 'hono/csrf'
 import { assertRequiredConfig, isProductionEnv, resolveRequestConfig } from './config'
-import { createDatabase, getDatabase } from './db'
-import { type AppEnv, createRequestContext } from './request-context'
+import { getDatabase } from './db'
+import { type AppEnv, createRequestContext, createWorkerDb } from './request-context'
 import { auth } from './routes/auth'
 import { prs } from './routes/prs'
 import { user } from './routes/user'
 import { webhooks } from './routes/webhooks'
-
-// Workers cap concurrent external connections; Hyperdrive pools upstream, so the
-// per-isolate client stays small.
-const WORKER_MAX_CONNECTIONS = 5
 
 /**
  * Build the Hono app shared by the Node server and the Cloudflare Worker. One
@@ -34,14 +30,7 @@ export function createApp() {
       assertRequiredConfig(resolveRequestConfig(configEnv), {
         production: isProductionEnv(configEnv),
       })
-      const client = createDatabase(
-        {
-          url: c.env.HYPERDRIVE.connectionString,
-          ssl: false,
-          maxConnections: WORKER_MAX_CONNECTIONS,
-        },
-        { fetchTypes: false },
-      )
+      const client = createWorkerDb(c.env)
       c.set('ctx', createRequestContext({ env: configEnv, db: client.db }))
       try {
         await next()
