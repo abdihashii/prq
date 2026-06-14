@@ -76,10 +76,19 @@ config timing:
   `request-context` (information hiding, one code path for both runtimes) are
   independent design wins that hold regardless.
 
-**Open question, not closeable locally:** whether *secrets* (set with `wrangler secret
-put`) populate `process.env` at module-load on a *deployed* worker. `wrangler dev`
-sources both `vars` and secrets from `.dev.vars`, so it cannot distinguish a true
-secret from a var; the test above only proves the behavior for `vars`. A one-off check
-on the deployed worker (log whether a known secret is present in `process.env` at
-module-load) would settle it. Until then, the per-request resolution is also the safe
-default for secrets even if the `vars` finding does not extend to them.
+**Resolved (2026-06-13):** the open question of whether *secrets* (set with `wrangler
+secret put`, distinct from `vars`) also populate `process.env` at module-load is now
+settled on the deployed worker. A temporary booleans-only probe captured `process.env`
+presence at module eval (`const` evaluated at module-load, logged from `fetch()` so it
+surfaces in `wrangler tail`; reverted after). On the live worker, all of
+`PRQ_GITHUB_CLIENT_ID`, `PRQ_GITHUB_CLIENT_SECRET`, `PRQ_GITHUB_PRIVATE_KEY`, and
+`PRQ_GITHUB_WEBHOOK_SECRET` (secrets) read present at module-load, alongside the
+`NODE_ENV` var. So **secrets behave like vars: present in `process.env` at module-load**
+on a deployed worker. This fully refutes the original "secrets read empty" premise, not
+just the `vars` half. The per-request refactor's justification therefore rests entirely
+on the Hyperdrive-binding reason above (the binding is reachable only inside a
+request/invocation), not on config timing.
+
+(Note: top-level/global-scope `console.log` does not surface in `wrangler tail`; it runs
+in startup scope outside any request. Capture at module-load into a value and log it
+from a handler to observe module-load state.)
