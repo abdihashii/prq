@@ -11,7 +11,7 @@ import {
   createGitHubDashboardAuthorization,
   createGitHubDashboardReconciler,
 } from './dashboard/github'
-import { createDatabase, type Database, type DatabaseClient } from './db'
+import { createDatabase, validateDatabaseUrl, type Database, type DatabaseClient } from './db'
 import {
   createAutoRetargetService,
   createAutoRetargetWorker,
@@ -115,9 +115,11 @@ const WORKER_MAX_CONNECTIONS = 5
  * @returns A database client; call close() when the request/invocation ends.
  */
 export function createWorkerDb(env: WorkerBindings): DatabaseClient {
+  const url = env.HYPERDRIVE.connectionString
+  validateDatabaseUrl(url)
   return createDatabase(
     {
-      url: env.HYPERDRIVE.connectionString,
+      url,
       ssl: false,
       maxConnections: WORKER_MAX_CONNECTIONS,
     },

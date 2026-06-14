@@ -85,7 +85,15 @@ function parseDatabaseUrl(url: string): URL {
   }
 }
 
-function validateDatabaseUrl(url: string): void {
+/**
+ * Assert that a Postgres connection URL is well-formed: parseable, postgres(ql)://
+ * protocol, with a host and database name. Throws with a specific message on the
+ * first violation. Used by the env resolver and the Worker's Hyperdrive path, which
+ * builds its config outside resolveDatabaseConfig.
+ *
+ * @param url - The connection URL to validate.
+ */
+export function validateDatabaseUrl(url: string): void {
   const parsed = parseDatabaseUrl(url)
 
   if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
