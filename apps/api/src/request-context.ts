@@ -1,5 +1,5 @@
 import { createDrizzleAuthStore, type AuthDependencies } from './auth/session'
-import { isProductionEnv, resolveRequestConfig } from './config'
+import { resolveRequestConfig, type RequestConfig } from './config'
 import {
   createDashboardFacade,
   createDrizzleDashboardStore,
@@ -58,21 +58,24 @@ export interface AppEnv {
 }
 
 /**
- * Build the per-request context from a resolved environment and database handle.
+ * Build the per-request context from already-resolved config and a database handle.
  * The single place that wires config and DB into the auth, dashboard, and webhook
- * dependency bundles; shared by the fetch middleware and the cron handler.
+ * dependency bundles. Config is resolved once by the caller (the fetch middleware,
+ * which also gates on it) and passed in, so a request reads its env only once.
  *
- * @param input.env - String env vars/secrets (c.env on Workers, process.env on Node).
+ * @param input.config - Resolved request config (auth, mutation, webhook secret).
+ * @param input.production - Whether this is production (drives Secure cookies).
  * @param input.db - The database handle for this request's lifetime.
  * @returns Ready-bound auth deps, dashboard facade, webhook deps, and cookie policy.
  */
 export function createRequestContext(input: {
-  env: Record<string, string | undefined>
+  config: RequestConfig
+  production: boolean
   db: Database
 }): RequestContext {
-  const { env, db } = input
-  const { authConfig, mutationConfig, webhookSecret } = resolveRequestConfig(env)
-  const cookiePolicy: CookiePolicy = { secure: isProductionEnv(env) }
+  const { config, production, db } = input
+  const { authConfig, mutationConfig, webhookSecret } = config
+  const cookiePolicy: CookiePolicy = { secure: production }
 
   const authDeps: AuthDependencies = {
     config: authConfig,

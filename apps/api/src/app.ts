@@ -23,15 +23,15 @@ export function createApp() {
   app.use('/api/*', csrf())
   app.use('/api/*', async (c, next) => {
     const configEnv = env<Record<string, string | undefined>>(c)
+    const config = resolveRequestConfig(configEnv)
+    const production = isProductionEnv(configEnv)
 
     if (getRuntimeKey() === 'workerd') {
       // Node fails this at startup; the Worker has no startup, so validate per
       // request (only /api/* — /health stays up as a liveness probe).
-      assertRequiredConfig(resolveRequestConfig(configEnv), {
-        production: isProductionEnv(configEnv),
-      })
+      assertRequiredConfig(config, { production })
       const client = createWorkerDb(c.env)
-      c.set('ctx', createRequestContext({ env: configEnv, db: client.db }))
+      c.set('ctx', createRequestContext({ config, production, db: client.db }))
       try {
         await next()
       }
@@ -41,7 +41,7 @@ export function createApp() {
       return
     }
 
-    c.set('ctx', createRequestContext({ env: configEnv, db: getDatabase().db }))
+    c.set('ctx', createRequestContext({ config, production, db: getDatabase().db }))
     await next()
   })
 
