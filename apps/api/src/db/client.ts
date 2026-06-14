@@ -13,8 +13,6 @@ export interface DatabaseClient {
 }
 
 export interface PostgresDriverOptions {
-  /** Use prepared statements. Omit to keep postgres.js's default (enabled). */
-  prepare?: boolean
   /** Fetch array/custom type OIDs on connect. Disable on Hyperdrive to save a round-trip. */
   fetchTypes?: boolean
 }
@@ -28,7 +26,6 @@ export function createDatabase(
   const sql = postgres(config.url, {
     max: config.maxConnections,
     ssl: config.ssl,
-    ...(options.prepare !== undefined ? { prepare: options.prepare } : {}),
     ...(options.fetchTypes !== undefined ? { fetch_types: options.fetchTypes } : {}),
   })
   const db = drizzle(sql, { schema })

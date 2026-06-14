@@ -47,10 +47,9 @@ describe('database client boundary', () => {
   it('applies Hyperdrive driver tuning when options are given', async () => {
     const client = createDatabase(
       { url: 'postgres://user:pass@localhost:5432/prq_test', ssl: false, maxConnections: 5 },
-      { prepare: true, fetchTypes: false },
+      { fetchTypes: false },
     )
 
-    expect(client.sql.options.prepare).toBe(true)
     expect(client.sql.options.fetch_types).toBe(false)
     expect(client.sql.options.max).toBe(5)
 
