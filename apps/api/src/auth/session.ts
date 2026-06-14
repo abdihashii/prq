@@ -10,6 +10,7 @@ import {
   type GitHubAppAuthConfig,
 } from '../config'
 import { getDatabase, type Database } from '../db'
+import { defaultFetch } from '../fetch'
 import { githubInstallations, githubSessions, githubUsers } from '../db/schema'
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
@@ -188,7 +189,7 @@ export async function completeGitHubAppCallback(
 ): Promise<Response> {
   const config = requireGitHubAppConfig(deps.config ?? githubAppAuthConfig)
   const now = currentTime(deps)
-  const fetchImpl = deps.fetch ?? fetch
+  const fetchImpl = deps.fetch ?? defaultFetch
   const store = resolveStore(deps)
   const stateCookie = getCookie(c, OAUTH_STATE_COOKIE)
   const verifier = getCookie(c, OAUTH_VERIFIER_COOKIE)
@@ -501,7 +502,7 @@ async function resolveDatabaseAuthToken(
     refreshed = await refreshGitHubAppToken({
       refreshToken: session.refreshToken,
       config: requireGitHubAppConfig(deps.config ?? githubAppAuthConfig),
-      fetchImpl: deps.fetch ?? fetch,
+      fetchImpl: deps.fetch ?? defaultFetch,
       now,
     })
   }
@@ -531,7 +532,7 @@ async function syncInstallationsForAccessToken(
   now: Date,
   deps: AuthDependencies,
 ): Promise<GitHubInstallationRecord[]> {
-  const installations = await fetchGitHubUserInstallations(accessToken, deps.fetch ?? fetch)
+  const installations = await fetchGitHubUserInstallations(accessToken, deps.fetch ?? defaultFetch)
   await resolveStore(deps).upsertInstallations(installations, now)
   return installations
 }

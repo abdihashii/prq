@@ -5,6 +5,7 @@ import {
   missingGitHubAppMutationConfig,
   type GitHubAppMutationConfig,
 } from '../../config'
+import { defaultFetch } from '../../fetch'
 import type {
   AutoRetargetTarget,
   GitHubRetargetClient,
@@ -35,7 +36,7 @@ export function createGitHubRetargetClient(dependencies: {
   now?: () => Date
 } = {}): GitHubRetargetClient {
   const config = dependencies.config ?? githubAppMutationConfig
-  const fetchImpl = dependencies.fetch ?? fetch
+  const fetchImpl = dependencies.fetch ?? defaultFetch
   const now = dependencies.now ?? (() => new Date())
 
   return {
