@@ -1,5 +1,6 @@
 import type { ExecutionContext } from 'hono'
 import { createApp } from './app'
+import { assertRequiredConfig, isProductionEnv, resolveRequestConfig } from './config'
 import {
   createAutoRetargetCronWorker,
   createWorkerDb,
@@ -16,8 +17,22 @@ export default {
   // Cron Trigger: setInterval doesn't run in Workers, so the auto-retarget fallback
   // runs one pass per scheduled invocation (see triggers.crons in wrangler.jsonc).
   async scheduled(_event: unknown, env: WorkerBindings, _ctx: ExecutionContext) {
-    const client = createWorkerDb(env)
     const { HYPERDRIVE: _hyperdrive, ...vars } = env
+
+    // The /api/* fetch path gates on config and 500s loudly; the cron path had no
+    // gate, so a missing secret made runOnce() a silent no-op (it swallows per-item
+    // errors). Validate up front and throw so a missing secret fails the invocation
+    // visibly in Cloudflare metrics. The error names only the missing vars, never
+    // their values, so logging it leaks nothing.
+    try {
+      assertRequiredConfig(resolveRequestConfig(vars), { production: isProductionEnv(vars) })
+    }
+    catch (error) {
+      console.error('auto-retarget cron: required config missing', error)
+      throw error
+    }
+
+    const client = createWorkerDb(env)
     try {
       await createAutoRetargetCronWorker({ env: vars, db: client.db }).runOnce()
     }
