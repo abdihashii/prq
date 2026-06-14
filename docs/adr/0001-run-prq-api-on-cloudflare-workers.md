@@ -50,3 +50,36 @@ product's stated design principles.
   primitives, (2) deep request context + shared `createApp()`, (3) production Worker
   config + secrets, (4) Supabase migration, (5) auto-retarget cron trigger,
   (6) deploy + CI.
+
+## Addendum (2026-06-13): the module-load premise did not reproduce
+
+The Context above claims module evaluation runs before the fetch handler "so the DB
+pinned to the localhost fallback and secrets read empty." Direct testing under workerd
+(compat `2026-05-01`, `nodejs_compat`) did not reproduce this: `process.env` IS
+populated from `vars` at module-load time, so the module-load config globals
+(`githubAppAuthConfig` and friends) resolve their real values, not empty strings. The
+original "secrets read empty / config globals are empty" rationale is therefore not
+accurate at this compatibility date, and should not be cited as the reason for the
+refactor.
+
+The per-request refactor still stands on its own, for a reason that does not depend on
+config timing:
+
+- **The Hyperdrive connection is only reachable inside a request/invocation.** The DB
+  connection string comes from the `HYPERDRIVE` binding on `c.env` (workers) or the
+  `scheduled()` `env`, not from `process.env`. That binding is not available at
+  module-load, and Workers forbid I/O at top-level eval, so a module-load DB singleton
+  cannot open the Hyperdrive connection at all. The DB must be opened per request and
+  closed (`waitUntil(client.close())`), independent of whether `process.env` is
+  populated. This is the load-bearing justification.
+- The shared `assertRequiredConfig()` gate (fetch + cron parity) and the deep
+  `request-context` (information hiding, one code path for both runtimes) are
+  independent design wins that hold regardless.
+
+**Open question, not closeable locally:** whether *secrets* (set with `wrangler secret
+put`) populate `process.env` at module-load on a *deployed* worker. `wrangler dev`
+sources both `vars` and secrets from `.dev.vars`, so it cannot distinguish a true
+secret from a var; the test above only proves the behavior for `vars`. A one-off check
+on the deployed worker (log whether a known secret is present in `process.env` at
+module-load) would settle it. Until then, the per-request resolution is also the safe
+default for secrets even if the `vars` finding does not extend to them.
