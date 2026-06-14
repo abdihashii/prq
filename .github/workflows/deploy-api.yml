@@ -2,6 +2,9 @@ name: Deploy API
 
 # Auto-deploys the prq-api Worker on merge to main (issue #19, ADR 0001 stage 6).
 on:
+  # Manual "Run workflow" button for ad-hoc redeploys (e.g. after a Cloudflare-side
+  # change or secret rotation) without a code change.
+  workflow_dispatch:
   push:
     branches: [main]
     # Worker bundles @prq/shared, so a shared change must also redeploy.
