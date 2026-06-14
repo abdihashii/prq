@@ -31,6 +31,6 @@
     "tsx": "latest",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "wrangler": "^4.100.0"
+    "wrangler": "catalog:"
   }
 }

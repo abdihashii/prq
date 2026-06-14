@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite dev --port 5173",
     "build": "vite build",
+    "deploy": "vite build && wrangler deploy",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -40,6 +41,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.40.2",
     "@storybook/addon-themes": "^10.4.0",
     "@storybook/react-vite": "^10.4.0",
     "@tanstack/devtools-vite": "latest",
@@ -55,6 +57,7 @@
     "storybook": "^10.4.0",
     "typescript": "catalog:",
     "vite": "^8.0.0",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }
