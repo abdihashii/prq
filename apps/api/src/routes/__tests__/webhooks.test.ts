@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ingestGitHubWebhook } from '../../github/webhook'
+import type { AppEnv, RequestContext } from '../../request-context'
 import { webhooks } from '../webhooks'
 
 vi.mock('../../github/webhook', () => ({
@@ -8,7 +9,14 @@ vi.mock('../../github/webhook', () => ({
 }))
 
 const mockedIngest = vi.mocked(ingestGitHubWebhook)
-const makeApp = () => new Hono().route('/api', webhooks)
+const makeApp = () => {
+  const app = new Hono<AppEnv>()
+  app.use('/api/*', async (c, next) => {
+    c.set('ctx', { webhookDeps: {} } as unknown as RequestContext)
+    await next()
+  })
+  return app.route('/api', webhooks)
+}
 
 beforeEach(() => {
   mockedIngest.mockReset()

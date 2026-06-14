@@ -2,6 +2,7 @@ import { and, eq, lte, ne, notInArray } from 'drizzle-orm'
 import { z } from 'zod'
 import type { AuthenticatedPrincipal } from '../auth/session'
 import { getDatabase, type Database } from '../db'
+import { defaultFetch } from '../fetch'
 import {
   githubInstallations,
   githubUserRepositories,
@@ -92,7 +93,7 @@ export function createGitHubDashboardAuthorization(dependencies: {
   fetch?: typeof fetch
 } = {}): DashboardAuthorization {
   const store = dependencies.store ?? createDrizzleDashboardAuthorizationStore()
-  const fetchImpl = dependencies.fetch ?? fetch
+  const fetchImpl = dependencies.fetch ?? defaultFetch
 
   return {
     async refresh(principal, now) {
@@ -451,7 +452,7 @@ export function createGitHubDashboardReconciler(dependencies: {
   fetch?: typeof fetch
 } = {}): DashboardReconciler {
   const store = dependencies.store ?? createDrizzleDashboardReconciliationStore()
-  const fetchImpl = dependencies.fetch ?? fetch
+  const fetchImpl = dependencies.fetch ?? defaultFetch
 
   return {
     async reconcile(repository, principal, now) {

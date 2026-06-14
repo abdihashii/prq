@@ -5,15 +5,14 @@ import {
   getAuthenticatedPrincipal,
   UnauthorizedError,
 } from '../auth/session'
-import { createDashboardFacade } from '../dashboard/dashboard'
 import {
   DashboardBadCredentialsError,
   DashboardRateLimitedError,
   DashboardUpstreamError,
 } from '../dashboard/errors'
+import type { AppEnv } from '../request-context'
 
-export const prs = new Hono()
-const dashboard = createDashboardFacade()
+export const prs = new Hono<AppEnv>()
 
 prs.get('/prs', async (c) => {
   try {
@@ -33,8 +32,8 @@ prs.get('/prs', async (c) => {
     }
     const allowSet = new Set(parseRepoList(normalized))
 
-    const principal = await getAuthenticatedPrincipal(c)
-    const body = await dashboard.getDashboard({
+    const principal = await getAuthenticatedPrincipal(c, c.var.ctx.authDeps)
+    const body = await c.var.ctx.dashboard.getDashboard({
       principal,
       repositoryAllowlist: allowSet,
     })
@@ -44,9 +43,9 @@ prs.get('/prs', async (c) => {
   }
 })
 
-async function mapError(c: Context, err: unknown) {
+async function mapError(c: Context<AppEnv>, err: unknown) {
   if (err instanceof DashboardBadCredentialsError) {
-    await clearCurrentAuthSession(c)
+    await clearCurrentAuthSession(c, c.var.ctx.authDeps)
     return c.json(
       { error: { code: 'BAD_CREDENTIALS', message: 'Not signed in' } },
       401,

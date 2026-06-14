@@ -69,9 +69,95 @@ export function missingGitHubAppMutationConfig(config: GitHubAppMutationConfig):
   return missing
 }
 
+export interface RequestConfig {
+  authConfig: GitHubAppAuthConfig
+  mutationConfig: GitHubAppMutationConfig
+  webhookSecret: string
+}
+
+/**
+ * Resolve every piece of GitHub App config from a single env source, so a
+ * request (or entrypoint) reads its config in one place instead of from
+ * module-load globals.
+ *
+ * @param env - Environment record (c.env on Workers, process.env on Node).
+ * @returns The auth config, mutation config, and webhook secret.
+ */
+export function resolveRequestConfig(env: Env = process.env): RequestConfig {
+  return {
+    authConfig: resolveGitHubAppAuthConfig(env),
+    mutationConfig: resolveGitHubAppMutationConfig(env),
+    webhookSecret: resolveGitHubWebhookSecret(env),
+  }
+}
+
+/**
+ * Assert that the config required to run is present, in one place shared by both
+ * entrypoints. The OAuth Client ID is always required; the remaining secrets are
+ * required only in production. Throws with every missing var named at once.
+ *
+ * @param config - Resolved request config to validate.
+ * @param options.production - Whether production-only secrets are required.
+ */
+export function assertRequiredConfig(
+  config: RequestConfig,
+  options: { production: boolean },
+): void {
+  const missing: string[] = []
+  if (!config.authConfig.clientId) missing.push('PRQ_GITHUB_CLIENT_ID')
+  if (options.production) {
+    missing.push(...missingGitHubAppAuthConfig(config.authConfig))
+    if (!config.webhookSecret) missing.push('PRQ_GITHUB_WEBHOOK_SECRET')
+    missing.push(...missingGitHubAppMutationConfig(config.mutationConfig))
+  }
+
+  throwIfMissing(missing)
+}
+
+/**
+ * Assert the config the auto-retarget cron needs: the GitHub App mutation creds it uses
+ * to mint installation tokens. The OAuth client secret and webhook secret the request
+ * path also gates on are unused by the cron, so it does not require them, keeping a
+ * missing webhook/OAuth secret from killing auto-retarget. Mirrors assertRequiredConfig's
+ * dev/prod split: the client ID is always required; the private key only in production.
+ *
+ * @param config - Resolved request config to validate.
+ * @param options.production - Whether the production-only private key is required.
+ */
+export function assertCronConfig(
+  config: RequestConfig,
+  options: { production: boolean },
+): void {
+  const missing: string[] = []
+  if (!config.authConfig.clientId) missing.push('PRQ_GITHUB_CLIENT_ID')
+  if (options.production) {
+    missing.push(...missingGitHubAppMutationConfig(config.mutationConfig))
+  }
+
+  throwIfMissing(missing)
+}
+
+/**
+ * Whether the resolved environment is production. Centralizes the NODE_ENV read
+ * so cookie and security policy derive from one place instead of scattered globals.
+ *
+ * @param env - Environment record (c.env on Workers, process.env on Node).
+ * @returns True when NODE_ENV is exactly "production".
+ */
+export function isProductionEnv(env: Env = process.env): boolean {
+  return env['NODE_ENV']?.trim() === 'production'
+}
+
 export const githubAppAuthConfig = resolveGitHubAppAuthConfig()
 export const githubAppMutationConfig = resolveGitHubAppMutationConfig()
 export const githubWebhookSecret = resolveGitHubWebhookSecret()
+
+function throwIfMissing(missing: string[]): void {
+  const unique = [...new Set(missing)]
+  if (unique.length > 0) {
+    throw new Error(`GitHub App config is missing required values: ${unique.join(', ')}`)
+  }
+}
 
 function emptyToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim()

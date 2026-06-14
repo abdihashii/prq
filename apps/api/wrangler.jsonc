@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "prq-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // The web app loads from useprq.com and calls the API with relative /api paths, so
+  // the worker serves useprq.com/api/* (same origin: cookies + csrf just work).
+  "routes": [
+    { "pattern": "useprq.com/api/*", "zone_name": "useprq.com" }
+  ],
+  // vars apply to `wrangler deploy` (production). Local `wrangler dev` overrides
+  // these via .dev.vars. Secrets (PRQ_GITHUB_*) are set with `wrangler secret put`.
+  "vars": {
+    "NODE_ENV": "production",
+    "PRQ_WEB_URL": "https://useprq.com",
+    "PRQ_GITHUB_CALLBACK_URL": "https://useprq.com/api/auth/github/callback"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "552cfb994fb64a499ea89a1ac8529fb9",
+      "localConnectionString": "postgres://prq:prq@localhost:5432/prq_dev"
+    }
+  ],
+  // Eventual-consistency fallback for auto-retarget (webhooks are the real-time path).
+  // Runs the scheduled() handler in src/worker.ts every 5 minutes.
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
+}

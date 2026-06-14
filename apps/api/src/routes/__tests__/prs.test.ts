@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearCurrentAuthSession, getAuthenticatedPrincipal } from '../../auth/session'
+import type { AppEnv, RequestContext } from '../../request-context'
 import { prs } from '../prs'
 
 const { getDashboard } = vi.hoisted(() => ({ getDashboard: vi.fn() }))
@@ -9,9 +10,6 @@ vi.mock('../../auth/session', async importOriginal => ({
   ...await importOriginal<typeof import('../../auth/session')>(),
   clearCurrentAuthSession: vi.fn(),
   getAuthenticatedPrincipal: vi.fn(),
-}))
-vi.mock('../../dashboard/dashboard', () => ({
-  createDashboardFacade: () => ({ getDashboard }),
 }))
 
 const mockedPrincipal = vi.mocked(getAuthenticatedPrincipal)
@@ -29,7 +27,14 @@ const response = {
   trackableRepos: [],
 }
 
-const makeApp = () => new Hono().route('/api', prs)
+const makeApp = () => {
+  const app = new Hono<AppEnv>()
+  app.use('/api/*', async (c, next) => {
+    c.set('ctx', { dashboard: { getDashboard }, authDeps: {} } as unknown as RequestContext)
+    await next()
+  })
+  return app.route('/api', prs)
+}
 
 beforeEach(() => {
   mockedPrincipal.mockReset()

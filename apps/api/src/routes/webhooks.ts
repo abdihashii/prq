@@ -1,17 +1,18 @@
 import { type Context, Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { ingestGitHubWebhook } from '../github/webhook'
+import type { AppEnv } from '../request-context'
 
 const GITHUB_WEBHOOK_BODY_LIMIT_BYTES = 25 * 1024 * 1024
 
-export const webhooks = new Hono()
+export const webhooks = new Hono<AppEnv>()
 
 webhooks.post(
   '/webhooks/github',
   bodyLimit({ maxSize: GITHUB_WEBHOOK_BODY_LIMIT_BYTES }),
   async (c) => {
     try {
-      await ingestGitHubWebhook(c.req.raw)
+      await ingestGitHubWebhook(c.req.raw, c.var.ctx.webhookDeps)
       return c.body(null, 204)
     }
     catch (error) {
@@ -20,7 +21,7 @@ webhooks.post(
   },
 )
 
-function mapWebhookError(c: Context, error: unknown) {
+function mapWebhookError(c: Context<AppEnv>, error: unknown) {
   const status = errorStatus(error)
   if (status === 400) {
     return c.json({ error: { code: 'BAD_REQUEST', message: errorMessage(error) } }, 400)

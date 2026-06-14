@@ -5,10 +5,12 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { z } from 'zod'
 import {
   githubAppAuthConfig,
+  isProductionEnv,
   missingGitHubAppAuthConfig,
   type GitHubAppAuthConfig,
 } from '../config'
 import { getDatabase, type Database } from '../db'
+import { defaultFetch } from '../fetch'
 import { githubInstallations, githubSessions, githubUsers } from '../db/schema'
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
@@ -108,6 +110,8 @@ export interface AuthStore {
 export interface AuthDependencies {
   config?: GitHubAppAuthConfig
   store?: AuthStore
+  /** Whether auth cookies are set with the Secure flag. Defaults to production. */
+  cookieSecure?: boolean
   fetch?: typeof fetch
   now?: () => Date
   createState?: () => string
@@ -164,9 +168,10 @@ export function beginGitHubAppSignIn(
   const state = deps.createState?.() ?? randomOpaqueValue()
   const verifier = deps.createVerifier?.() ?? randomPkceVerifier()
   const challenge = createPkceChallenge(verifier)
+  const secure = resolveCookieSecure(deps)
 
-  setOAuthCookie(c, OAUTH_STATE_COOKIE, state)
-  setOAuthCookie(c, OAUTH_VERIFIER_COOKIE, verifier)
+  setOAuthCookie(c, OAUTH_STATE_COOKIE, state, secure)
+  setOAuthCookie(c, OAUTH_VERIFIER_COOKIE, verifier, secure)
 
   const url = new URL(GITHUB_AUTHORIZE_URL)
   url.searchParams.set('client_id', config.clientId)
@@ -184,7 +189,7 @@ export async function completeGitHubAppCallback(
 ): Promise<Response> {
   const config = requireGitHubAppConfig(deps.config ?? githubAppAuthConfig)
   const now = currentTime(deps)
-  const fetchImpl = deps.fetch ?? fetch
+  const fetchImpl = deps.fetch ?? defaultFetch
   const store = resolveStore(deps)
   const stateCookie = getCookie(c, OAUTH_STATE_COOKIE)
   const verifier = getCookie(c, OAUTH_VERIFIER_COOKIE)
@@ -225,7 +230,7 @@ export async function completeGitHubAppCallback(
     expiresAt: tokenSet.expiresAt,
   }, now)
 
-  setDatabaseSessionCookie(c, sessionId, tokenSet.expiresAt, now)
+  setDatabaseSessionCookie(c, sessionId, tokenSet.expiresAt, now, resolveCookieSecure(deps))
 
   return c.redirect(buildWebRedirect(config.webUrl), 302)
 }
@@ -497,7 +502,7 @@ async function resolveDatabaseAuthToken(
     refreshed = await refreshGitHubAppToken({
       refreshToken: session.refreshToken,
       config: requireGitHubAppConfig(deps.config ?? githubAppAuthConfig),
-      fetchImpl: deps.fetch ?? fetch,
+      fetchImpl: deps.fetch ?? defaultFetch,
       now,
     })
   }
@@ -508,7 +513,7 @@ async function resolveDatabaseAuthToken(
     throw new UnauthorizedError('Session token rejected')
   }
   await store.updateSessionTokens(sessionIdHash, refreshed, now)
-  setDatabaseSessionCookie(c, sessionId, refreshed.expiresAt, now)
+  setDatabaseSessionCookie(c, sessionId, refreshed.expiresAt, now, resolveCookieSecure(deps))
 
   return {
     accessToken: refreshed.accessToken,
@@ -527,7 +532,7 @@ async function syncInstallationsForAccessToken(
   now: Date,
   deps: AuthDependencies,
 ): Promise<GitHubInstallationRecord[]> {
-  const installations = await fetchGitHubUserInstallations(accessToken, deps.fetch ?? fetch)
+  const installations = await fetchGitHubUserInstallations(accessToken, deps.fetch ?? defaultFetch)
   await resolveStore(deps).upsertInstallations(installations, now)
   return installations
 }
@@ -682,13 +687,14 @@ function setDatabaseSessionCookie(
   sessionId: string,
   expiresAt: Date,
   now: Date,
+  secure: boolean,
 ): void {
   setCookie(c, SESSION_COOKIE, sessionId, {
     httpOnly: true,
     sameSite: 'Lax',
     path: API_COOKIE_PATH,
     maxAge: Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000)),
-    secure: isProduction(),
+    secure,
   })
 }
 
@@ -696,13 +702,13 @@ function clearDatabaseSessionCookie(c: Context): void {
   deleteCookie(c, SESSION_COOKIE, { path: API_COOKIE_PATH })
 }
 
-function setOAuthCookie(c: Context, name: string, value: string): void {
+function setOAuthCookie(c: Context, name: string, value: string, secure: boolean): void {
   setCookie(c, name, value, {
     httpOnly: true,
     sameSite: 'Lax',
     path: OAUTH_COOKIE_PATH,
     maxAge: OAUTH_COOKIE_MAX_AGE_SECONDS,
-    secure: isProduction(),
+    secure,
   })
 }
 
@@ -761,6 +767,6 @@ function parseNullableDate(value: string | null | undefined): Date | null {
   return date
 }
 
-function isProduction(): boolean {
-  return process.env['NODE_ENV'] === 'production'
+function resolveCookieSecure(deps: AuthDependencies): boolean {
+  return deps.cookieSecure ?? isProductionEnv()
 }

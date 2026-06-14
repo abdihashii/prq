@@ -31,4 +31,28 @@ describe('database client boundary', () => {
     const third = getDatabase()
     expect(third).not.toBe(first)
   })
+
+  it('keeps prepared statements on by default (postgres.js default)', async () => {
+    const client = createDatabase({
+      url: 'postgres://user:pass@localhost:5432/prq_test',
+      ssl: false,
+      maxConnections: 1,
+    })
+
+    expect(client.sql.options.prepare).toBe(true)
+
+    await client.close()
+  })
+
+  it('applies Hyperdrive driver tuning when options are given', async () => {
+    const client = createDatabase(
+      { url: 'postgres://user:pass@localhost:5432/prq_test', ssl: false, maxConnections: 5 },
+      { fetchTypes: false },
+    )
+
+    expect(client.sql.options.fetch_types).toBe(false)
+    expect(client.sql.options.max).toBe(5)
+
+    await client.close()
+  })
 })

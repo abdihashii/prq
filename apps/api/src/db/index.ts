@@ -9,6 +9,7 @@ export {
   LOCAL_DATABASE_URL,
   resolveDatabaseConfig,
   TEST_DATABASE_URL,
+  validateDatabaseUrl,
   type DatabaseConfig,
   type DatabaseSslMode,
 } from './config'

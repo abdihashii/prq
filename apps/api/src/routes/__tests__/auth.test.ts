@@ -1,8 +1,16 @@
 import { Hono } from 'hono'
 import { describe, expect, it } from 'vitest'
+import type { AppEnv, RequestContext } from '../../request-context'
 import { auth } from '../auth'
 
-const makeApp = () => new Hono().route('/api', auth)
+const makeApp = () => {
+  const app = new Hono<AppEnv>()
+  app.use('/api/*', async (c, next) => {
+    c.set('ctx', { authDeps: {} } as unknown as RequestContext)
+    await next()
+  })
+  return app.route('/api', auth)
+}
 
 describe('legacy device-flow routes', () => {
   it('are removed', async () => {
