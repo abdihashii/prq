@@ -30,6 +30,7 @@
     "drizzle-kit": "^0.31.10",
     "tsx": "latest",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "wrangler": "^4.100.0"
   }
 }
