@@ -1,6 +1,9 @@
 {
   "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
   "name": "prq-api",
+  // Pinned so non-interactive CI (deploy-api.yml) can resolve the account without
+  // prompting; also makes manual local deploys deterministic. Not secret.
+  "account_id": "6ee7c0e01307af21a95cadfe0ddd1a94",
   "main": "src/worker.ts",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
