@@ -18,6 +18,7 @@ export default {
   // runs one pass per scheduled invocation (see triggers.crons in wrangler.jsonc).
   async scheduled(_event: unknown, env: WorkerBindings, _ctx: ExecutionContext) {
     const { HYPERDRIVE: _hyperdrive, ...vars } = env
+    const config = resolveRequestConfig(vars)
 
     // The /api/* fetch path gates on config and 500s loudly; the cron path had no
     // gate, so a missing secret made runOnce() a silent no-op (it swallows per-item
@@ -25,7 +26,7 @@ export default {
     // visibly in Cloudflare metrics. The error names only the missing vars, never
     // their values, so logging it leaks nothing.
     try {
-      assertRequiredConfig(resolveRequestConfig(vars), { production: isProductionEnv(vars) })
+      assertRequiredConfig(config, { production: isProductionEnv(vars) })
     }
     catch (error) {
       console.error('auto-retarget cron: required config missing', error)
@@ -34,7 +35,10 @@ export default {
 
     const client = createWorkerDb(env)
     try {
-      await createAutoRetargetCronWorker({ env: vars, db: client.db }).runOnce()
+      await createAutoRetargetCronWorker({
+        mutationConfig: config.mutationConfig,
+        db: client.db,
+      }).runOnce()
     }
     finally {
       await client.close()

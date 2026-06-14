@@ -1,5 +1,5 @@
 import { createDrizzleAuthStore, type AuthDependencies } from './auth/session'
-import { resolveRequestConfig, type RequestConfig } from './config'
+import { type GitHubAppMutationConfig, type RequestConfig } from './config'
 import {
   createDashboardFacade,
   createDrizzleDashboardStore,
@@ -96,10 +96,9 @@ export function createRequestContext(input: {
   const webhookDeps: WebhookDependencies = {
     secret: webhookSecret,
     store: createDrizzleWebhookStore(db),
-    autoRetarget: createAutoRetargetService({
-      store: createDrizzleAutoRetargetStore(db),
-      github: createGitHubRetargetClient({ config: mutationConfig }),
-    }),
+    autoRetarget: createAutoRetargetService(
+      createAutoRetargetDeps({ db, mutationConfig }),
+    ),
   }
 
   return { authDeps, dashboard, webhookDeps, cookiePolicy }
@@ -130,23 +129,32 @@ export function createWorkerDb(env: WorkerBindings): DatabaseClient {
   )
 }
 
+// The auto-retarget store + GitHub client wiring, shared by the per-request webhook
+// path (wrapped in a service) and the cron handler (wrapped in a worker), so the
+// construction lives in one place.
+function createAutoRetargetDeps(input: {
+  db: Database
+  mutationConfig: GitHubAppMutationConfig
+}) {
+  return {
+    store: createDrizzleAutoRetargetStore(input.db),
+    github: createGitHubRetargetClient({ config: input.mutationConfig }),
+  }
+}
+
 /**
- * Build the auto-retarget worker for the Cron Trigger from a resolved environment and
- * database handle. Mirrors createRequestContext, keeping store and GitHub-client wiring
+ * Build the auto-retarget worker for the Cron Trigger from resolved mutation config and
+ * a database handle. Mirrors createRequestContext, keeping store and GitHub-client wiring
  * out of the Worker entry point. Returns the worker with runOnce(), not the per-event
  * service that createRequestContext exposes.
  *
- * @param input.env - String env vars/secrets (c.env on Workers).
+ * @param input.mutationConfig - Resolved GitHub App mutation config (client id + key).
  * @param input.db - The database handle for this invocation's lifetime.
  * @returns An auto-retarget worker ready to runOnce().
  */
 export function createAutoRetargetCronWorker(input: {
-  env: Record<string, string | undefined>
+  mutationConfig: GitHubAppMutationConfig
   db: Database
 }): AutoRetargetWorker {
-  const { mutationConfig } = resolveRequestConfig(input.env)
-  return createAutoRetargetWorker({
-    store: createDrizzleAutoRetargetStore(input.db),
-    github: createGitHubRetargetClient({ config: mutationConfig }),
-  })
+  return createAutoRetargetWorker(createAutoRetargetDeps(input))
 }
