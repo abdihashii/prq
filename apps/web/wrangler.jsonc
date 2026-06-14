@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "prq-web",
+  // Same account as prq-api; pinned so non-interactive deploys resolve it without
+  // prompting. Not secret.
+  "account_id": "6ee7c0e01307af21a95cadfe0ddd1a94",
+  // TanStack Start's Cloudflare server entry, wired by @cloudflare/vite-plugin. The
+  // built client assets are bound automatically and edge-served (no Worker hit on asset
+  // requests); the Worker only runs the SPA fallback.
+  "main": "@tanstack/react-start/server-entry",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Web serves everything on app.useprq.com EXCEPT /api/*. prq-api owns
+  // app.useprq.com/api/*, which is a strictly more specific route, so Cloudflare sends
+  // /api/* to the API and all other paths here. Same origin: cookies + csrf just work.
+  // (apex useprq.com is a future landing app, served by neither Worker.)
+  "routes": [
+    { "pattern": "app.useprq.com/*", "zone_name": "useprq.com" }
+  ]
+}

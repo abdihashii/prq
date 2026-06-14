@@ -7,17 +7,19 @@
   "main": "src/worker.ts",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
-  // The web app loads from useprq.com and calls the API with relative /api paths, so
-  // the worker serves useprq.com/api/* (same origin: cookies + csrf just work).
+  // The web app (prq-web) loads from app.useprq.com and calls the API with relative
+  // /api paths, so this worker serves app.useprq.com/api/* (same origin: cookies + csrf
+  // just work). This route is strictly more specific than prq-web's app.useprq.com/*,
+  // so Cloudflare sends /api/* here and everything else to the web worker.
   "routes": [
-    { "pattern": "useprq.com/api/*", "zone_name": "useprq.com" }
+    { "pattern": "app.useprq.com/api/*", "zone_name": "useprq.com" }
   ],
   // vars apply to `wrangler deploy` (production). Local `wrangler dev` overrides
   // these via .dev.vars. Secrets (PRQ_GITHUB_*) are set with `wrangler secret put`.
   "vars": {
     "NODE_ENV": "production",
-    "PRQ_WEB_URL": "https://useprq.com",
-    "PRQ_GITHUB_CALLBACK_URL": "https://useprq.com/api/auth/github/callback"
+    "PRQ_WEB_URL": "https://app.useprq.com",
+    "PRQ_GITHUB_CALLBACK_URL": "https://app.useprq.com/api/auth/github/callback"
   },
   "hyperdrive": [
     {
