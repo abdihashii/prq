@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assertCronConfig,
   assertRequiredConfig,
   LOCAL_GITHUB_CALLBACK_URL,
   LOCAL_WEB_URL,
@@ -138,5 +139,40 @@ describe('assertRequiredConfig', () => {
     expect(message).toContain('PRQ_GITHUB_CLIENT_SECRET')
     expect(message).toContain('PRQ_GITHUB_WEBHOOK_SECRET')
     expect(message).toContain('PRQ_GITHUB_PRIVATE_KEY')
+  })
+})
+
+describe('assertCronConfig', () => {
+  it('requires only the client ID outside production', () => {
+    expect(() => assertCronConfig(resolveRequestConfig({}), { production: false }))
+      .toThrow('PRQ_GITHUB_CLIENT_ID')
+    expect(() => assertCronConfig(
+      resolveRequestConfig({ PRQ_GITHUB_CLIENT_ID: 'client-1' }),
+      { production: false },
+    )).not.toThrow()
+  })
+
+  it('requires the App mutation creds in production but not the OAuth/webhook secrets', () => {
+    // The cron uses only the mutation config; a missing client/webhook secret must not
+    // block it, even though assertRequiredConfig would require them.
+    const mutationOnly = resolveRequestConfig({
+      PRQ_GITHUB_CLIENT_ID: 'client-1',
+      PRQ_GITHUB_PRIVATE_KEY: 'key-1',
+    })
+    expect(() => assertCronConfig(mutationOnly, { production: true })).not.toThrow()
+
+    let message = ''
+    try {
+      assertCronConfig(
+        resolveRequestConfig({ PRQ_GITHUB_CLIENT_ID: 'client-1' }),
+        { production: true },
+      )
+    }
+    catch (error) {
+      message = (error as Error).message
+    }
+    expect(message).toContain('PRQ_GITHUB_PRIVATE_KEY')
+    expect(message).not.toContain('PRQ_GITHUB_CLIENT_SECRET')
+    expect(message).not.toContain('PRQ_GITHUB_WEBHOOK_SECRET')
   })
 })

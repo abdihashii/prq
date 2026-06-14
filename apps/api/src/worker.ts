@@ -1,6 +1,6 @@
 import type { ExecutionContext } from 'hono'
 import { createApp } from './app'
-import { assertRequiredConfig, isProductionEnv, resolveRequestConfig } from './config'
+import { assertCronConfig, isProductionEnv, resolveRequestConfig, type RequestConfig } from './config'
 import {
   createAutoRetargetCronWorker,
   createWorkerDb,
@@ -18,18 +18,20 @@ export default {
   // runs one pass per scheduled invocation (see triggers.crons in wrangler.jsonc).
   async scheduled(_event: unknown, env: WorkerBindings, _ctx: ExecutionContext) {
     const { HYPERDRIVE: _hyperdrive, ...vars } = env
-    const config = resolveRequestConfig(vars)
 
     // The /api/* fetch path gates on config and 500s loudly; the cron path had no
     // gate, so a missing secret made runOnce() a silent no-op (it swallows per-item
-    // errors). Validate up front and throw so a missing secret fails the invocation
-    // visibly in Cloudflare metrics. The error names only the missing vars, never
-    // their values, so logging it leaks nothing.
+    // errors). Resolve and validate up front (assertCronConfig checks only the App
+    // mutation creds the cron uses, not the unrelated OAuth/webhook secrets) and throw
+    // so any config error fails the invocation visibly in Cloudflare metrics. The error
+    // names only the missing vars, never their values, so logging it leaks nothing.
+    let config: RequestConfig
     try {
-      assertRequiredConfig(config, { production: isProductionEnv(vars) })
+      config = resolveRequestConfig(vars)
+      assertCronConfig(config, { production: isProductionEnv(vars) })
     }
     catch (error) {
-      console.error('auto-retarget cron: required config missing', error)
+      console.error('auto-retarget cron: invalid or missing config', error)
       throw error
     }
 

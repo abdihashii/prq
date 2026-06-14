@@ -111,10 +111,30 @@ export function assertRequiredConfig(
     missing.push(...missingGitHubAppMutationConfig(config.mutationConfig))
   }
 
-  const unique = [...new Set(missing)]
-  if (unique.length > 0) {
-    throw new Error(`GitHub App config is missing required values: ${unique.join(', ')}`)
+  throwIfMissing(missing)
+}
+
+/**
+ * Assert the config the auto-retarget cron needs: the GitHub App mutation creds it uses
+ * to mint installation tokens. The OAuth client secret and webhook secret the request
+ * path also gates on are unused by the cron, so it does not require them, keeping a
+ * missing webhook/OAuth secret from killing auto-retarget. Mirrors assertRequiredConfig's
+ * dev/prod split: the client ID is always required; the private key only in production.
+ *
+ * @param config - Resolved request config to validate.
+ * @param options.production - Whether the production-only private key is required.
+ */
+export function assertCronConfig(
+  config: RequestConfig,
+  options: { production: boolean },
+): void {
+  const missing: string[] = []
+  if (!config.authConfig.clientId) missing.push('PRQ_GITHUB_CLIENT_ID')
+  if (options.production) {
+    missing.push(...missingGitHubAppMutationConfig(config.mutationConfig))
   }
+
+  throwIfMissing(missing)
 }
 
 /**
@@ -131,6 +151,13 @@ export function isProductionEnv(env: Env = process.env): boolean {
 export const githubAppAuthConfig = resolveGitHubAppAuthConfig()
 export const githubAppMutationConfig = resolveGitHubAppMutationConfig()
 export const githubWebhookSecret = resolveGitHubWebhookSecret()
+
+function throwIfMissing(missing: string[]): void {
+  const unique = [...new Set(missing)]
+  if (unique.length > 0) {
+    throw new Error(`GitHub App config is missing required values: ${unique.join(', ')}`)
+  }
+}
 
 function emptyToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
