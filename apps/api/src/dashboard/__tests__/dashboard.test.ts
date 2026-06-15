@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { DashboardBadCredentialsError, DashboardUpstreamError } from '../errors'
+import type { Installation } from '@prq/shared'
 import {
   createDashboardFacade,
   createDashboardService,
@@ -43,11 +44,13 @@ function storedPullRequest(overrides: Partial<StoredPullRequest> = {}): StoredPu
 
 function serviceWithState(state: {
   ownedRepositories?: Array<{ owner: string, name: string }>
+  installations?: Installation[]
   pullRequests?: ReturnType<typeof storedPullRequest>[]
 }) {
   const store: DashboardStore = {
     load: async () => ({
       ownedRepositories: state.ownedRepositories ?? [],
+      installations: state.installations ?? [],
       pullRequests: state.pullRequests ?? [],
     }),
   }
@@ -67,7 +70,39 @@ describe('database dashboard projection', () => {
       syncedAt: NOW.toISOString(),
       rateLimit: { cost: 0, remaining: 0, resetAt: NOW.toISOString() },
       trackableRepos: [],
+      installations: [],
     })
+  })
+
+  it('treats a null allowlist as All mode and surfaces every relevant PR', async () => {
+    const dashboard = await serviceWithState({
+      pullRequests: [
+        storedPullRequest(),
+        storedPullRequest({
+          id: 'PR_other',
+          repository: { owner: 'platform', name: 'control-plane' },
+          headRepository: { owner: 'platform', name: 'control-plane' },
+        }),
+      ],
+    }).getDashboard({
+      viewer: VIEWER,
+      repositoryAllowlist: null,
+    })
+
+    expect(dashboard.buckets.waiting).toHaveLength(2)
+  })
+
+  it('passes install scope through to the response', async () => {
+    const installations: Installation[] = [
+      { installationId: 'I_personal', accountLogin: 'haji', accountType: 'User' },
+      { installationId: 'I_org', accountLogin: 'acme', accountType: 'Organization' },
+    ]
+    const dashboard = await serviceWithState({ installations }).getDashboard({
+      viewer: VIEWER,
+      repositoryAllowlist: null,
+    })
+
+    expect(dashboard.installations).toEqual(installations)
   })
 
   it('serves old stored rows with conservative defaults and no freshness cutoff', async () => {
@@ -253,7 +288,7 @@ describe('dashboard facade', () => {
     logError?: (message: string, error: unknown) => void
   }) {
     const store: DashboardStore = {
-      load: vi.fn(async () => ({ ownedRepositories: [], pullRequests: [] })),
+      load: vi.fn(async () => ({ ownedRepositories: [], installations: [], pullRequests: [] })),
     }
     return {
       store,
@@ -271,7 +306,7 @@ describe('dashboard facade', () => {
 
   it('requires missing initial reconciliation before projection', async () => {
     const store: DashboardStore = {
-      load: vi.fn(async () => ({ ownedRepositories: [], pullRequests: [] })),
+      load: vi.fn(async () => ({ ownedRepositories: [], installations: [], pullRequests: [] })),
     }
     const reconciler: DashboardReconciler = {
       reconcile: vi.fn(async () => {
@@ -295,6 +330,7 @@ describe('dashboard facade', () => {
   it('populates a fresh authorized repository before projecting it', async () => {
     const state = {
       ownedRepositories: [] as Array<{ owner: string, name: string }>,
+      installations: [] as Installation[],
       pullRequests: [] as StoredPullRequest[],
     }
     const dashboard = createDashboardFacade({

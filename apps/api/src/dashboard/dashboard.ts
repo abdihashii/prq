@@ -139,6 +139,22 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
         .where(activeViewerRepository)
         .orderBy(asc(repositories.owner), asc(repositories.name))
 
+      const installations = await db.selectDistinct({
+        installationId: githubInstallations.githubInstallationId,
+        accountLogin: githubInstallations.accountLogin,
+        accountType: githubInstallations.accountType,
+      }).from(githubInstallations)
+        .innerJoin(
+          repositories,
+          eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
+        )
+        .innerJoin(
+          githubUserRepositories,
+          eq(githubUserRepositories.githubRepositoryId, repositories.githubRepositoryId),
+        )
+        .where(activeViewerRepository)
+        .orderBy(asc(githubInstallations.accountLogin))
+
       const relevantToViewer = sql`(
         lower(${pullRequests.authorLogin}) = ${normalizedViewerLogin}
         or exists (
@@ -192,7 +208,7 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
         ))
         .orderBy(desc(pullRequests.githubUpdatedAt), asc(pullRequests.githubPullRequestId))
 
-      if (rows.length === 0) return { ownedRepositories, pullRequests: [] }
+      if (rows.length === 0) return { ownedRepositories, installations, pullRequests: [] }
 
       const ids = rows.map(row => row.id)
       const [reviewRequests, viewerReviews, autoRetargetHistory] = await Promise.all([
@@ -252,6 +268,7 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
 
       return {
         ownedRepositories,
+        installations,
         pullRequests: rows.map(row => ({
           id: row.id,
           number: row.number,
@@ -300,7 +317,8 @@ async function runWithConcurrency<T>(
 
 function projectDashboard(
   viewerLogin: string,
-  repositoryAllowlist: ReadonlySet<string>,
+  // `null` means no filter: track every repo in install scope (All mode).
+  repositoryAllowlist: ReadonlySet<string> | null,
   state: StoredDashboardState,
   now: Date,
 ): DashboardResponse {
@@ -319,7 +337,9 @@ function projectDashboard(
 
   for (const pullRequest of pullRequests) {
     const slug = `${pullRequest.repository.owner}/${pullRequest.repository.name}`
-    if (repositoryAllowlist.has(slug)) buckets[pullRequest.bucket].push(pullRequest)
+    if (repositoryAllowlist === null || repositoryAllowlist.has(slug)) {
+      buckets[pullRequest.bucket].push(pullRequest)
+    }
   }
 
   const syncedAt = now.toISOString()
@@ -329,6 +349,7 @@ function projectDashboard(
     syncedAt,
     rateLimit: { cost: 0, remaining: 0, resetAt: syncedAt },
     trackableRepos,
+    installations: state.installations,
   })
 }
 

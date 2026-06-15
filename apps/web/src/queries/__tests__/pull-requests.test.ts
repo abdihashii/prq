@@ -16,6 +16,7 @@ const validDashboardResponse: DashboardResponse = {
   syncedAt: '2026-05-03T12:00:00.000Z',
   rateLimit: { cost: 5, remaining: 4995, resetAt: '2026-05-03T13:00:00.000Z' },
   trackableRepos: [],
+  installations: [],
 }
 
 describe('fetchPullRequests', () => {

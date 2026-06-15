@@ -12,6 +12,7 @@ export {
   RateLimitSchema,
 } from './schemas/contract'
 export { TrackableRepoSchema } from './schemas/trackableRepo'
+export { InstallationSchema } from './schemas/installation'
 export {
   DEFAULT_SETTINGS,
   POLLING_OPTIONS,
@@ -32,6 +33,7 @@ export type {
 } from './types/dashboard'
 export type { ApiErrorCode, ApiErrorPayload, RateLimit } from './types/contract'
 export type { TrackableRepo } from './types/trackableRepo'
+export type { Installation } from './types/installation'
 export type { PollingMs, Settings, Theme, TrackedRepos } from './types/settings'
 export type { TokenHealthResponse } from './types/auth'
 

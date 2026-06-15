@@ -16,26 +16,34 @@ export const prs = new Hono<AppEnv>()
 
 prs.get('/prs', async (c) => {
   try {
+    // An absent `repos` param means "no filter": track every repo in install
+    // scope (All mode). A present param (even empty) filters to that set
+    // (Custom mode). This keeps All mode representable without the client
+    // first knowing the repo universe.
+    //
     // @hono/node-server leaves %2F (slash) in query values un-decoded, while
     // app.request() in tests decodes automatically — normalize via
     // decodeURIComponent so both paths converge. Fall back to the raw value
     // when the input contains a malformed `%` escape (decodeURIComponent
     // throws URIError on those); parseRepoList's regex rejects it anyway,
-    // so the filter degrades to an empty allowSet instead of a 502.
+    // so the filter degrades to an empty allowlist instead of a 502.
     const reposParam = c.req.query('repos')
-    let normalized: string | undefined = reposParam
-    try {
-      if (reposParam !== undefined) normalized = decodeURIComponent(reposParam)
+    let repositoryAllowlist: ReadonlySet<string> | null = null
+    if (reposParam !== undefined) {
+      let normalized = reposParam
+      try {
+        normalized = decodeURIComponent(reposParam)
+      }
+      catch {
+        normalized = reposParam
+      }
+      repositoryAllowlist = new Set(parseRepoList(normalized))
     }
-    catch {
-      normalized = reposParam
-    }
-    const allowSet = new Set(parseRepoList(normalized))
 
     const principal = await getAuthenticatedPrincipal(c, c.var.ctx.authDeps)
     const body = await c.var.ctx.dashboard.getDashboard({
       principal,
-      repositoryAllowlist: allowSet,
+      repositoryAllowlist,
     })
     return c.json(body)
   } catch (err) {

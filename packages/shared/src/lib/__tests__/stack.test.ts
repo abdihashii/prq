@@ -324,6 +324,7 @@ describe('inferDashboardStacks', () => {
         resetAt: '2026-05-01T01:00:00.000Z',
       },
       trackableRepos: [],
+      installations: [],
     }
 
     expect(DashboardResponseSchema.parse(response)).toEqual(response)

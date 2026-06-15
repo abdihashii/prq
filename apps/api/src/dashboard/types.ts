@@ -1,4 +1,4 @@
-import type { DashboardResponse, PullRequest, RequestedReviewer } from '@prq/shared'
+import type { DashboardResponse, Installation, PullRequest, RequestedReviewer } from '@prq/shared'
 import type { AuthenticatedPrincipal, AuthenticatedViewer } from '../auth/session'
 
 export interface AuthorizedRepository {
@@ -40,6 +40,7 @@ export interface StoredPullRequest {
 
 export interface StoredDashboardState {
   ownedRepositories: StoredRepository[]
+  installations: Installation[]
   pullRequests: StoredPullRequest[]
 }
 
@@ -50,7 +51,8 @@ export interface DashboardStore {
 export interface DashboardProjectionService {
   getDashboard(args: {
     viewer: AuthenticatedViewer
-    repositoryAllowlist: ReadonlySet<string>
+    // `null` means no filter: track every repo in install scope (All mode).
+    repositoryAllowlist: ReadonlySet<string> | null
   }): Promise<DashboardResponse>
 }
 
@@ -72,6 +74,7 @@ export interface DashboardReconciler {
 export interface DashboardFacade {
   getDashboard(args: {
     principal: AuthenticatedPrincipal
-    repositoryAllowlist: ReadonlySet<string>
+    // `null` means no filter: track every repo in install scope (All mode).
+    repositoryAllowlist: ReadonlySet<string> | null
   }): Promise<DashboardResponse>
 }
