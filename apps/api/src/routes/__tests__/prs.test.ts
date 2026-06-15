@@ -25,6 +25,7 @@ const response = {
     resetAt: '2026-06-07T12:00:00.000Z',
   },
   trackableRepos: [],
+  installations: [],
 }
 
 const makeApp = () => {
@@ -58,6 +59,15 @@ describe('GET /api/prs', () => {
     expect(getDashboard).toHaveBeenCalledWith({
       principal: { githubId: 'U_haji', login: 'haji', accessToken: 'secret-token' },
       repositoryAllowlist: new Set(['vercel/next.js']),
+    })
+  })
+
+  it('treats an absent repos param as All mode (null allowlist, no filter)', async () => {
+    await makeApp().request('/api/prs')
+
+    expect(getDashboard).toHaveBeenCalledWith({
+      principal: { githubId: 'U_haji', login: 'haji', accessToken: 'secret-token' },
+      repositoryAllowlist: null,
     })
   })
 

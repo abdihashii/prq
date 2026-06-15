@@ -12,6 +12,7 @@ export {
   RateLimitSchema,
 } from './schemas/contract'
 export { TrackableRepoSchema } from './schemas/trackableRepo'
+export { InstallationSchema } from './schemas/installation'
 export {
   DEFAULT_SETTINGS,
   POLLING_OPTIONS,
@@ -19,6 +20,7 @@ export {
   SettingsSchema,
   ThemeSchema,
   TrackedReposSchema,
+  TrackingStateSchema,
 } from './schemas/settings'
 export { TokenHealthResponseSchema } from './schemas/auth'
 
@@ -32,7 +34,8 @@ export type {
 } from './types/dashboard'
 export type { ApiErrorCode, ApiErrorPayload, RateLimit } from './types/contract'
 export type { TrackableRepo } from './types/trackableRepo'
-export type { PollingMs, Settings, Theme, TrackedRepos } from './types/settings'
+export type { Installation } from './types/installation'
+export type { PollingMs, Settings, Theme, TrackedRepos, TrackingState } from './types/settings'
 export type { TokenHealthResponse } from './types/auth'
 
 export { assignBucket } from './lib/bucket'

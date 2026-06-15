@@ -1,9 +1,10 @@
-import type { PollingMs, Settings, Theme, TrackableRepo, TrackedRepos } from '@prq/shared'
+import type { Installation, PollingMs, Settings, Theme, TrackableRepo, TrackingState } from '@prq/shared'
 import { POLLING_OPTIONS, SettingsSchema } from '@prq/shared'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { AuthSection } from '@/components/auth-section'
+import { ManageAccess } from '@/components/manage-access'
 import { RepoPicker } from '@/components/repo-picker'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -36,12 +37,13 @@ interface SettingsPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   pollingMs: PollingMs
-  trackedRepos: TrackedRepos
+  tracking: TrackingState
   trackableRepos: TrackableRepo[]
+  installations: Installation[]
   trackableReposLoading: boolean
   resolvedTheme: Theme
   onPollingMsChange: (ms: PollingMs) => void
-  onTrackedReposChange: (repos: TrackedRepos) => void
+  onTrackingChange: (next: TrackingState) => void
   onThemeChange: (theme: Theme) => void
   onAuthChange: (signedIn: boolean) => void
   signedOut: boolean
@@ -52,12 +54,13 @@ export function SettingsPanel(props: SettingsPanelProps) {
     open,
     onOpenChange,
     pollingMs,
-    trackedRepos,
+    tracking,
     trackableRepos,
+    installations,
     trackableReposLoading,
     resolvedTheme,
     onPollingMsChange,
-    onTrackedReposChange,
+    onTrackingChange,
     onThemeChange,
     onAuthChange,
     signedOut,
@@ -66,7 +69,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
 
   const form = useForm<Settings>({
     resolver: zodResolver(SettingsSchema),
-    defaultValues: { pollingMs, trackedRepos },
+    defaultValues: { pollingMs, tracking },
   })
 
   // Reset drafts to persisted state whenever the panel is opened, so closing
@@ -74,12 +77,12 @@ export function SettingsPanel(props: SettingsPanelProps) {
   // "discard on close, hydrate on open" semantic; intentionally NOT a generic
   // mirror of external state — that would silently revert an in-flight edit.
   useEffect(() => {
-    if (open) form.reset({ pollingMs, trackedRepos })
-  }, [open, pollingMs, trackedRepos, form])
+    if (open) form.reset({ pollingMs, tracking })
+  }, [open, pollingMs, tracking, form])
 
   const handleSave = form.handleSubmit((values) => {
     onPollingMsChange(values.pollingMs)
-    onTrackedReposChange(values.trackedRepos)
+    onTrackingChange(values.tracking ?? { mode: 'all' })
     // Rebaseline so isDirty flips back to false; the parent prop update
     // doesn't reset RHF's defaultValues on its own.
     form.reset(values)
@@ -127,24 +130,20 @@ export function SettingsPanel(props: SettingsPanelProps) {
         <Separator />
 
         <section className="space-y-3">
-          <div>
-            <h3 className="text-sm font-medium">Tracked repositories</h3>
-            <p className="text-muted-foreground text-xs">
-              Show only PRs from selected repos. Selecting nothing hides the dashboard.
-            </p>
-          </div>
+          <h3 className="text-sm font-medium">Tracked repositories</h3>
           <Controller
-            name="trackedRepos"
+            name="tracking"
             control={form.control}
             render={({ field }) => (
               <RepoPicker
                 trackableRepos={trackableRepos}
-                draftTrackedRepos={field.value}
+                draftTracking={field.value ?? { mode: 'all' }}
                 onChange={field.onChange}
                 loading={trackableReposLoading}
               />
             )}
           />
+          <ManageAccess installations={installations} repoCount={trackableRepos.length} />
         </section>
       </div>
 

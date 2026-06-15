@@ -6,6 +6,7 @@ import type {
   StackNode,
 } from '../types/dashboard'
 import { RateLimitSchema } from './contract'
+import { InstallationSchema } from './installation'
 import { PullRequestSchema } from './pullRequest'
 import { TrackableRepoSchema } from './trackableRepo'
 
@@ -35,4 +36,5 @@ export const DashboardResponseSchema: z.ZodType<DashboardResponse> = z.object({
   syncedAt: z.iso.datetime(),
   rateLimit: RateLimitSchema,
   trackableRepos: z.array(TrackableRepoSchema),
+  installations: z.array(InstallationSchema),
 })

@@ -1,5 +1,6 @@
 import type { Bucket } from './bucket'
 import type { RateLimit } from './contract'
+import type { Installation } from './installation'
 import type { PullRequest } from './pullRequest'
 import type { TrackableRepo } from './trackableRepo'
 
@@ -20,4 +21,5 @@ export interface DashboardResponse {
   syncedAt: string
   rateLimit: RateLimit
   trackableRepos: TrackableRepo[]
+  installations: Installation[]
 }

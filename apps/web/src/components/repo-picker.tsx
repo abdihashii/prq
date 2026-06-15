@@ -1,17 +1,19 @@
-import type { TrackableRepo, TrackedRepos } from '@prq/shared'
+import type { TrackableRepo, TrackingState } from '@prq/shared'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { clearRepos, setMode, toggleRepo, TRACKING_ALL_THRESHOLD } from '@/lib/tracking/tracking'
 
 interface RepoPickerProps {
   trackableRepos: TrackableRepo[]
-  draftTrackedRepos: TrackedRepos
-  onChange: (next: TrackedRepos) => void
+  draftTracking: TrackingState
+  onChange: (next: TrackingState) => void
   loading?: boolean
 }
 
@@ -47,21 +49,80 @@ function RepoPickerSkeleton() {
   )
 }
 
+function ModeToggle({
+  mode,
+  onSelect,
+}: {
+  mode: TrackingState['mode']
+  onSelect: (mode: 'all' | 'custom') => void
+}) {
+  return (
+    <div className="flex gap-1">
+      <Button
+        type="button"
+        size="sm"
+        variant={mode === 'all' ? 'default' : 'outline'}
+        onClick={() => onSelect('all')}
+      >
+        All
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={mode === 'custom' ? 'default' : 'outline'}
+        onClick={() => onSelect('custom')}
+      >
+        Select
+      </Button>
+    </div>
+  )
+}
+
 function RepoPickerActive({
   trackableRepos,
-  draftTrackedRepos,
+  draftTracking,
   onChange,
 }: RepoPickerProps) {
+  const handleModeSelect = (mode: 'all' | 'custom') => {
+    onChange(setMode(draftTracking, mode, trackableRepos))
+  }
+
+  return (
+    <div className="space-y-3">
+      <ModeToggle mode={draftTracking.mode} onSelect={handleModeSelect} />
+      {draftTracking.mode === 'custom' && (
+        <CustomChecklist
+          trackableRepos={trackableRepos}
+          repos={draftTracking.repos}
+          onToggle={slug => onChange(toggleRepo(draftTracking, slug))}
+          onClear={() => onChange(clearRepos(draftTracking))}
+        />
+      )}
+    </div>
+  )
+}
+
+function CustomChecklist({
+  trackableRepos,
+  repos,
+  onToggle,
+  onClear,
+}: {
+  trackableRepos: TrackableRepo[]
+  repos: string[]
+  onToggle: (slug: string) => void
+  onClear: () => void
+}) {
   const [searchQuery, setSearchQuery] = useState('')
 
-  const draft = useMemo(() => new Set(draftTrackedRepos), [draftTrackedRepos])
+  const draft = useMemo(() => new Set(repos), [repos])
 
   const allRepos = useMemo<TrackableRepo[]>(() => {
     const map = new Map<string, TrackableRepo>()
     for (const r of trackableRepos) {
       map.set(`${r.owner}/${r.name}`, r)
     }
-    for (const slug of draftTrackedRepos) {
+    for (const slug of repos) {
       if (map.has(slug)) continue
       const [owner, name] = slug.split('/')
       map.set(slug, { owner, name, prCount: 0 })
@@ -71,7 +132,7 @@ function RepoPickerActive({
       const bk = `${b.owner}/${b.name}`
       return ak < bk ? -1 : ak > bk ? 1 : 0
     })
-  }, [trackableRepos, draftTrackedRepos])
+  }, [trackableRepos, repos])
 
   const visibleRepos = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -87,13 +148,6 @@ function RepoPickerActive({
     overscan: 5,
   })
 
-  const toggle = (key: string) => {
-    const next = new Set(draft)
-    if (next.has(key)) next.delete(key)
-    else next.add(key)
-    onChange(allRepos.map(r => `${r.owner}/${r.name}`).filter(k => next.has(k)))
-  }
-
   const selectedSlugs = useMemo(
     () =>
       allRepos
@@ -105,40 +159,55 @@ function RepoPickerActive({
   if (allRepos.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
-        No repositories yet — none owned and none currently in your PR firehose.
+        No repositories yet. None owned and none currently in your PR firehose.
       </p>
     )
   }
 
+  const showSearch = allRepos.length > TRACKING_ALL_THRESHOLD
+
   return (
     <div className="space-y-3">
       {selectedSlugs.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedSlugs.map(slug => (
-            <Badge
-              key={slug}
-              variant="secondary"
-              asChild
-              className="cursor-pointer gap-1 py-1 hover:bg-secondary/80"
-            >
-              <button
-                type="button"
-                onClick={() => toggle(slug)}
-                aria-label={`Remove ${slug}`}
+        <>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {selectedSlugs.length} tracked
+            </span>
+            <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+              Clear all
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {selectedSlugs.map(slug => (
+              <Badge
+                key={slug}
+                variant="secondary"
+                asChild
+                className="cursor-pointer gap-1 py-1 hover:bg-secondary/80"
               >
-                <span className="max-w-[24ch] truncate">{slug}</span>
-                <X className="size-3 shrink-0" />
-              </button>
-            </Badge>
-          ))}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => onToggle(slug)}
+                  aria-label={`Remove ${slug}`}
+                >
+                  <span className="max-w-[24ch] truncate">{slug}</span>
+                  <X className="size-3 shrink-0" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </>
       )}
 
-      <Input
-        placeholder="Search repos..."
-        value={searchQuery}
-        onChange={e => setSearchQuery(e.target.value)}
-      />
+      {showSearch && (
+        <Input
+          placeholder="Search repos..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+      )}
 
       <div
         ref={parentRef}
@@ -176,7 +245,7 @@ function RepoPickerActive({
                   <Checkbox
                     id={id}
                     checked={draft.has(key)}
-                    onCheckedChange={() => toggle(key)}
+                    onCheckedChange={() => onToggle(key)}
                   />
                   <Label
                     htmlFor={id}

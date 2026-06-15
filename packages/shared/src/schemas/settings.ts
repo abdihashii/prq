@@ -11,15 +11,20 @@ export const TrackedReposSchema = z.array(z.string().regex(/^[^/\s]+\/[^/\s]+$/)
 
 export const ThemeSchema = z.enum(['light', 'dark'])
 
-export const DEFAULT_SETTINGS: { pollingMs: 30_000, trackedRepos: string[] } = {
+export const TrackingStateSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('all') }),
+  z.object({ mode: z.literal('custom'), repos: TrackedReposSchema }),
+])
+
+export const DEFAULT_SETTINGS: { pollingMs: 30_000, tracking: null } = {
   pollingMs: 30_000,
-  trackedRepos: [],
+  tracking: null,
 }
 
 export const SettingsSchema = z
   .object({
     pollingMs: PollingMsSchema,
-    trackedRepos: TrackedReposSchema,
+    tracking: TrackingStateSchema.nullable(),
   })
   .catch(() => DEFAULT_SETTINGS)
 
