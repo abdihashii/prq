@@ -1,9 +1,10 @@
-import type { PollingMs, Settings, Theme, TrackableRepo, TrackingState } from '@prq/shared'
+import type { Installation, PollingMs, Settings, Theme, TrackableRepo, TrackingState } from '@prq/shared'
 import { POLLING_OPTIONS, SettingsSchema } from '@prq/shared'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { AuthSection } from '@/components/auth-section'
+import { ManageAccess } from '@/components/manage-access'
 import { RepoPicker } from '@/components/repo-picker'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,7 @@ interface SettingsPanelProps {
   pollingMs: PollingMs
   tracking: TrackingState
   trackableRepos: TrackableRepo[]
+  installations: Installation[]
   trackableReposLoading: boolean
   resolvedTheme: Theme
   onPollingMsChange: (ms: PollingMs) => void
@@ -54,6 +56,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
     pollingMs,
     tracking,
     trackableRepos,
+    installations,
     trackableReposLoading,
     resolvedTheme,
     onPollingMsChange,
@@ -145,6 +148,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
               />
             )}
           />
+          <ManageAccess installations={installations} repoCount={trackableRepos.length} />
         </section>
       </div>
 

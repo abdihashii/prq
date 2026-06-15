@@ -1,10 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Settings } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import type { Installation } from '@prq/shared'
 import { Dashboard } from '@/components/dashboard'
 import { DashboardSkeleton } from '@/components/dashboard-skeleton'
 import { ErrorBanner } from '@/components/error-banner'
 import { LastSynced } from '@/components/last-synced'
+import { ManageAccess } from '@/components/manage-access'
 import { SignInPage } from '@/components/sign-in-page'
 import { SettingsPanel } from '@/components/settings-panel'
 import { Button } from '@/components/ui/button'
@@ -70,6 +72,7 @@ function Home() {
   // Gate auth-derived data at render time so a transient query.data preserved
   // from a prior session can't surface in the settings picker after sign-out.
   const trackableRepos = fatalAuthError ? [] : (query.data?.trackableRepos ?? [])
+  const installations = fatalAuthError ? [] : (query.data?.installations ?? [])
   // Loading = no data yet AND not in a definitive signed-out state. Covers
   // the initial fetch, post-sign-in (cache cleared), and post-account-swap.
   // Background refetches stay silent — query.data persists, isPending=false.
@@ -99,6 +102,7 @@ function Home() {
         pollingMs={pollingMs}
         tracking={effectiveTracking}
         trackableRepos={trackableRepos}
+        installations={installations}
         trackableReposLoading={trackableReposLoading}
         resolvedTheme={resolvedTheme}
         onPollingMsChange={setPollingMs}
@@ -139,7 +143,12 @@ function Home() {
           )}
 
           {showOnboarding ? (
-            <OnboardingEmptyState onOpenSettings={() => setSettingsOpen(true)} />
+            <OnboardingEmptyState
+              installations={installations}
+              repoCount={trackableRepos.length}
+              onTrackAll={() => setTracking({ mode: 'all' })}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
           ) : query.data && tracking !== null ? (
             <Dashboard data={query.data} />
           ) : (
@@ -155,16 +164,34 @@ function countBucketPrs(items: Parameters<typeof countDisplayItemPrs>[0][] | und
   return items?.reduce((count, item) => count + countDisplayItemPrs(item), 0) ?? 0
 }
 
-function OnboardingEmptyState({ onOpenSettings }: { onOpenSettings: () => void }) {
+function OnboardingEmptyState({
+  installations,
+  repoCount,
+  onTrackAll,
+  onOpenSettings,
+}: {
+  installations: Installation[]
+  repoCount: number
+  onTrackAll: () => void
+  onOpenSettings: () => void
+}) {
   return (
     <div className="border-input rounded-md border p-8 text-center">
-      <h2 className="text-base font-medium">Select repos in Settings to start tracking PRs.</h2>
+      <h2 className="text-base font-medium">Pick the repos you want to track</h2>
       <p className="text-muted-foreground mt-1 text-sm">
-        prq filters to repos you opt into. Choose any with open PRs to populate your dashboard.
+        Track every repo prq can access, or choose specific ones to follow.
       </p>
-      <Button onClick={onOpenSettings} className="mt-4" size="sm">
-        Open Settings
-      </Button>
+      <div className="mt-4 flex justify-center gap-2">
+        <Button onClick={onTrackAll} size="sm">
+          Track all
+        </Button>
+        <Button onClick={onOpenSettings} size="sm" variant="outline">
+          Choose repos
+        </Button>
+      </div>
+      <div className="mt-4 flex justify-center">
+        <ManageAccess installations={installations} repoCount={repoCount} />
+      </div>
     </div>
   )
 }
