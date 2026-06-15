@@ -1,26 +1,25 @@
-name: Deploy API
+name: Deploy Web
 
-# Auto-deploys the prq-api Worker on merge to main (issue #19, ADR 0001 stage 6).
+# Auto-deploys the prq-web Worker on merge to main (issue #23, companion to #19/#20).
 on:
-  # Manual "Run workflow" button for ad-hoc redeploys (e.g. after a Cloudflare-side
-  # change or secret rotation) without a code change.
+  # Manual "Run workflow" button for ad-hoc redeploys without a code change.
   workflow_dispatch:
   push:
     branches: [main]
     # Worker bundles @prq/shared, so a shared change must also redeploy.
     paths:
-      - 'apps/api/**'
+      - 'apps/web/**'
       - 'packages/shared/**'
-      - '.github/workflows/deploy-api.yml'
+      - '.github/workflows/deploy-web.yml'
 
-# Least privilege: this job only reads the repo to build + deploy. No repo writes,
-# no OIDC (wrangler authenticates with an API token, not id-token).
+# Least privilege: this job only reads the repo to build + deploy.
 permissions:
   contents: read
 
-# Serialize deploys; never cancel one mid-publish.
+# Serialize web deploys; never cancel one mid-publish. Separate group from
+# deploy-api so the two workflows don't block each other.
 concurrency:
-  group: deploy-api
+  group: deploy-web
   cancel-in-progress: false
 
 jobs:
@@ -42,11 +41,11 @@ jobs:
           node-version: 22 # matches root engines.node ">=22"; no .nvmrc exists
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @prq/api typecheck
-      - run: pnpm --filter @prq/api test
+      - run: pnpm --filter @prq/web typecheck
+      - run: pnpm --filter @prq/web test
       # "run deploy", not "pnpm deploy" (collides with pnpm's built-in deploy).
-      # Secret passed via env (not inlined); wrangler reads CLOUDFLARE_API_TOKEN
-      # automatically; account_id is committed in wrangler.jsonc.
-      - run: pnpm --filter @prq/api run deploy
+      # The deploy script runs `vite build && wrangler deploy`. wrangler reads
+      # CLOUDFLARE_API_TOKEN automatically; account_id is committed in wrangler.jsonc.
+      - run: pnpm --filter @prq/web run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
