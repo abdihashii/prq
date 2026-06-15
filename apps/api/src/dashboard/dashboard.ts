@@ -124,36 +124,39 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
         eq(githubUserRepositories.githubUserId, viewer.githubId),
       )
 
-      const ownedRepositories = await db.select({
-        owner: repositories.owner,
-        name: repositories.name,
-      }).from(repositories)
-        .innerJoin(
-          githubUserRepositories,
-          eq(repositories.githubRepositoryId, githubUserRepositories.githubRepositoryId),
-        )
-        .innerJoin(
-          githubInstallations,
-          eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
-        )
-        .where(activeViewerRepository)
-        .orderBy(asc(repositories.owner), asc(repositories.name))
-
-      const installations = await db.selectDistinct({
-        installationId: githubInstallations.githubInstallationId,
-        accountLogin: githubInstallations.accountLogin,
-        accountType: githubInstallations.accountType,
-      }).from(githubInstallations)
-        .innerJoin(
-          repositories,
-          eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
-        )
-        .innerJoin(
-          githubUserRepositories,
-          eq(githubUserRepositories.githubRepositoryId, repositories.githubRepositoryId),
-        )
-        .where(activeViewerRepository)
-        .orderBy(asc(githubInstallations.accountLogin))
+      // Independent reads over the same join graph; run them concurrently
+      // rather than paying two serial round-trips on the dashboard hot path.
+      const [ownedRepositories, installations] = await Promise.all([
+        db.select({
+          owner: repositories.owner,
+          name: repositories.name,
+        }).from(repositories)
+          .innerJoin(
+            githubUserRepositories,
+            eq(repositories.githubRepositoryId, githubUserRepositories.githubRepositoryId),
+          )
+          .innerJoin(
+            githubInstallations,
+            eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
+          )
+          .where(activeViewerRepository)
+          .orderBy(asc(repositories.owner), asc(repositories.name)),
+        db.selectDistinct({
+          installationId: githubInstallations.githubInstallationId,
+          accountLogin: githubInstallations.accountLogin,
+          accountType: githubInstallations.accountType,
+        }).from(githubInstallations)
+          .innerJoin(
+            repositories,
+            eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
+          )
+          .innerJoin(
+            githubUserRepositories,
+            eq(githubUserRepositories.githubRepositoryId, repositories.githubRepositoryId),
+          )
+          .where(activeViewerRepository)
+          .orderBy(asc(githubInstallations.accountLogin)),
+      ])
 
       const relevantToViewer = sql`(
         lower(${pullRequests.authorLogin}) = ${normalizedViewerLogin}
