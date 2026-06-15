@@ -87,23 +87,17 @@ function RepoPickerActive({
     onChange(setMode(draftTracking, mode, trackableRepos))
   }
 
-  if (draftTracking.mode === 'all') {
-    return (
-      <div className="space-y-3">
-        <ModeToggle mode="all" onSelect={handleModeSelect} />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-3">
-      <ModeToggle mode="custom" onSelect={handleModeSelect} />
-      <CustomChecklist
-        trackableRepos={trackableRepos}
-        repos={draftTracking.repos}
-        onToggle={slug => onChange(toggleRepo(draftTracking, slug))}
-        onClear={() => onChange(clearRepos(draftTracking))}
-      />
+      <ModeToggle mode={draftTracking.mode} onSelect={handleModeSelect} />
+      {draftTracking.mode === 'custom' && (
+        <CustomChecklist
+          trackableRepos={trackableRepos}
+          repos={draftTracking.repos}
+          onToggle={slug => onChange(toggleRepo(draftTracking, slug))}
+          onClear={() => onChange(clearRepos(draftTracking))}
+        />
+      )}
     </div>
   )
 }
@@ -175,36 +169,36 @@ function CustomChecklist({
   return (
     <div className="space-y-3">
       {selectedSlugs.length > 0 && (
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {selectedSlugs.length} tracked
-          </span>
-          <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-            Clear all
-          </Button>
-        </div>
-      )}
+        <>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {selectedSlugs.length} tracked
+            </span>
+            <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+              Clear all
+            </Button>
+          </div>
 
-      {selectedSlugs.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selectedSlugs.map(slug => (
-            <Badge
-              key={slug}
-              variant="secondary"
-              asChild
-              className="cursor-pointer gap-1 py-1 hover:bg-secondary/80"
-            >
-              <button
-                type="button"
-                onClick={() => onToggle(slug)}
-                aria-label={`Remove ${slug}`}
+          <div className="flex flex-wrap gap-1.5">
+            {selectedSlugs.map(slug => (
+              <Badge
+                key={slug}
+                variant="secondary"
+                asChild
+                className="cursor-pointer gap-1 py-1 hover:bg-secondary/80"
               >
-                <span className="max-w-[24ch] truncate">{slug}</span>
-                <X className="size-3 shrink-0" />
-              </button>
-            </Badge>
-          ))}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => onToggle(slug)}
+                  aria-label={`Remove ${slug}`}
+                >
+                  <span className="max-w-[24ch] truncate">{slug}</span>
+                  <X className="size-3 shrink-0" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        </>
       )}
 
       {showSearch && (
