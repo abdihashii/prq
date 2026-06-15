@@ -8,7 +8,7 @@ This file fixes the project's ubiquitous language.
 
 **Dashboard**:
 The single aggregated view of every open PR a user authors or is asked to review,
-across all repos the GitHub App is installed on.
+across the repos they track.
 _Avoid_: feed, list, home
 
 **Stack**:
@@ -34,3 +34,19 @@ _Avoid_: event handling, hook processing
 The installation-based identity PRQ uses for both authentication and repo access.
 Never a personal access token.
 _Avoid_: OAuth app, token, PAT
+
+**Install scope**:
+The set of repositories a GitHub App installation grants PRQ access to; the outer
+bound of everything PRQ can surface for a user. Curated on GitHub, never inside PRQ.
+_Avoid_: access scope, granted repos, permissions
+
+**Tracked repos**:
+The repositories a user has chosen to follow — the ones they care about — independent
+of whether those repos currently have open PRs. The dashboard shows PRs only from
+tracked repos. Always a subset of install scope.
+_Avoid_: watched, selected, followed, default repos, allowlist
+
+**PR firehose**:
+Every PR that involves a user (authored, review-requested, or reviewed) across their
+whole install scope, before tracked-repo filtering narrows it to the dashboard.
+_Avoid_: feed, stream
