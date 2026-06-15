@@ -6,6 +6,13 @@ import { readSettings, writeSettings } from '@/lib/settings-storage/settings-sto
 export interface UseSettingsReturn {
   pollingMs: PollingMs
   tracking: TrackingState | null
+  /**
+   * Whether `settings` reflects the persisted value for the current viewer
+   * (vs. the pre-hydration default). `tracking === null` only means "unseeded"
+   * once this is true; before it, null just means "not read yet" and must not
+   * be seeded over, or a returning viewer's stored choice gets clobbered.
+   */
+  hydrated: boolean
   setPollingMs: (next: PollingMs) => void
   setTracking: (next: TrackingState) => void
 }
@@ -39,6 +46,7 @@ export function useSettings(viewerLogin: string | null): UseSettingsReturn {
   return {
     pollingMs: settings.pollingMs,
     tracking: settings.tracking,
+    hydrated: viewerLogin !== null && hydratedFor === viewerLogin,
     setPollingMs: next => setSettings(prev => ({ ...prev, pollingMs: next })),
     setTracking: next => setSettings(prev => ({ ...prev, tracking: next })),
   }

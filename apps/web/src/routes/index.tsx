@@ -32,7 +32,7 @@ function Home() {
   // we just deleted the cookie, or a previous fetch already returned 401).
   const [signedOut, setSignedOut] = useState(false)
 
-  const { pollingMs, tracking, setPollingMs, setTracking } = useSettings(viewerLogin)
+  const { pollingMs, tracking, hydrated, setPollingMs, setTracking } = useSettings(viewerLogin)
   const { resolvedTheme, setTheme } = useTheme()
   const effectiveTracking = tracking ?? UNSEEDED_TRACKING
   const query = usePullRequests({ pollingMs, tracking: effectiveTracking, enabled: !signedOut })
@@ -44,13 +44,16 @@ function Home() {
 
   // Seed a fresh viewer's tracking mode from their install-scope size once the
   // dashboard data (and thus trackableRepos) is available. Small scope -> All;
-  // large scope -> empty Custom (guided pick).
+  // large scope -> empty Custom (guided pick). Gate on `hydrated`: before the
+  // viewer's persisted settings have been read, tracking is null only because
+  // it hasn't loaded, and seeding then would clobber a returning viewer's
+  // stored choice.
   const trackableReposData = query.data?.trackableRepos
   useEffect(() => {
-    if (tracking === null && viewerLogin !== null && trackableReposData !== undefined) {
+    if (hydrated && tracking === null && trackableReposData !== undefined) {
       setTracking(seedTracking(trackableReposData, TRACKING_ALL_THRESHOLD))
     }
-  }, [tracking, viewerLogin, trackableReposData, setTracking])
+  }, [hydrated, tracking, trackableReposData, setTracking])
 
   const fatalAuthError =
     signedOut
@@ -82,6 +85,21 @@ function Home() {
     setViewerLogin(null)
     setSignedOut(!nowSignedIn)
   }
+  // Resolve the seed synchronously at render time once settings are hydrated and
+  // data is available, rather than waiting for the seeding effect to commit.
+  // Without this, a fresh viewer shows DashboardSkeleton for the render(s)
+  // between data arriving and the effect running, even though their PRs are
+  // already in hand. Gated on `hydrated` for the same reason as the effect: a
+  // pre-hydration null must stay null (skeleton), not seed over a returning
+  // viewer's persisted choice. The effect above still persists the seed.
+  const resolvedTracking
+    = tracking
+      ?? (hydrated && trackableReposData !== undefined
+        ? seedTracking(trackableReposData, TRACKING_ALL_THRESHOLD)
+        : null)
+  const isGuidedPick
+    = resolvedTracking?.mode === 'custom' && resolvedTracking.repos.length === 0
+
   // Gate on viewerLogin so the empty state can't render in the brief window
   // between query resolution and useSettings hydrating from localStorage,
   // otherwise returning users see an onboarding flash before their persisted
@@ -91,8 +109,17 @@ function Home() {
     = !fatalAuthError
       && query.data !== undefined
       && viewerLogin !== null
-      && effectiveTracking.mode === 'custom'
-      && effectiveTracking.repos.length === 0
+      && isGuidedPick
+  // Render the dashboard as soon as data and a resolved (seeded) tracking exist,
+  // except for the empty-Custom guided-pick case which belongs to onboarding.
+  // Keying on resolvedTracking instead of the not-yet-committed `tracking` is
+  // what removes the post-data skeleton flash; excluding guided-pick keeps a
+  // large-scope viewer from flashing the firehose before onboarding appears.
+  const showDashboard
+    = !fatalAuthError
+      && query.data !== undefined
+      && resolvedTracking !== null
+      && !isGuidedPick
 
   return (
     <>
@@ -149,7 +176,7 @@ function Home() {
               onTrackAll={() => setTracking({ mode: 'all' })}
               onOpenSettings={() => setSettingsOpen(true)}
             />
-          ) : query.data && tracking !== null ? (
+          ) : showDashboard && query.data ? (
             <Dashboard data={query.data} />
           ) : (
             <DashboardSkeleton />
