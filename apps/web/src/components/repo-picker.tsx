@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { setMode, toggleRepo, TRACKING_ALL_THRESHOLD } from '@/lib/tracking/tracking'
+import { clearRepos, setMode, toggleRepo, TRACKING_ALL_THRESHOLD } from '@/lib/tracking/tracking'
 
 interface RepoPickerProps {
   trackableRepos: TrackableRepo[]
@@ -102,6 +102,7 @@ function RepoPickerActive({
         trackableRepos={trackableRepos}
         repos={draftTracking.repos}
         onToggle={slug => onChange(toggleRepo(draftTracking, slug))}
+        onClear={() => onChange(clearRepos(draftTracking))}
       />
     </div>
   )
@@ -111,10 +112,12 @@ function CustomChecklist({
   trackableRepos,
   repos,
   onToggle,
+  onClear,
 }: {
   trackableRepos: TrackableRepo[]
   repos: string[]
   onToggle: (slug: string) => void
+  onClear: () => void
 }) {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -171,6 +174,17 @@ function CustomChecklist({
 
   return (
     <div className="space-y-3">
+      {selectedSlugs.length > 0 && (
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {selectedSlugs.length} tracked
+          </span>
+          <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+            Clear all
+          </Button>
+        </div>
+      )}
+
       {selectedSlugs.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {selectedSlugs.map(slug => (

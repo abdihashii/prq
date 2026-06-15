@@ -1,6 +1,7 @@
 import type { TrackableRepo, TrackingState } from '@prq/shared'
 import { describe, expect, it } from 'vitest'
 import {
+  clearRepos,
   seedTracking,
   setMode,
   toggleRepo,
@@ -63,6 +64,24 @@ describe('toggleRepo', () => {
   it('is a no-op in All mode', () => {
     const state = { mode: 'all' } as const
     expect(toggleRepo(state, 'c/d')).toBe(state)
+  })
+})
+
+describe('clearRepos', () => {
+  it('empties the selection in Custom mode', () => {
+    expect(clearRepos({ mode: 'custom', repos: ['a/b', 'c/d'] })).toEqual({
+      mode: 'custom',
+      repos: [],
+    })
+  })
+
+  it('is a no-op for already-empty Custom', () => {
+    expect(clearRepos({ mode: 'custom', repos: [] })).toEqual({ mode: 'custom', repos: [] })
+  })
+
+  it('is a no-op in All mode', () => {
+    const state = { mode: 'all' } as const
+    expect(clearRepos(state)).toBe(state)
   })
 })
 

@@ -70,6 +70,26 @@ export function toggleRepo(state: TrackingState, slug: string): TrackingState {
 }
 
 /**
+ * Clear the custom selection, leaving the viewer in an explicit empty-Custom
+ * state (the guided-pick onboarding). No-op in All mode, which has no per-repo
+ * selection to clear.
+ *
+ * @param state - Current tracking state.
+ * @returns The unchanged state in All mode; otherwise `{ mode: 'custom', repos: [] }`.
+ *
+ * @example
+ * clearRepos({ mode: 'custom', repos: ['a/b', 'c/d'] })
+ * // => { mode: 'custom', repos: [] }
+ *
+ * @example
+ * clearRepos({ mode: 'all' }) // => { mode: 'all' }
+ */
+export function clearRepos(state: TrackingState): TrackingState {
+  if (state.mode !== 'custom') return state
+  return { mode: 'custom', repos: [] }
+}
+
+/**
  * Switch tracking mode. Switching to All discards the selection. Switching to
  * Custom from All preselects the whole universe; staying in Custom is a no-op.
  *
