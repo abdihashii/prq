@@ -32,5 +32,11 @@
   // Runs the scheduled() handler in src/worker.ts every 5 minutes.
   "triggers": {
     "crons": ["*/5 * * * *"]
+  },
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
   }
 }
