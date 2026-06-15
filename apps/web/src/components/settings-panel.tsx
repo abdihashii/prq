@@ -130,12 +130,7 @@ export function SettingsPanel(props: SettingsPanelProps) {
         <Separator />
 
         <section className="space-y-3">
-          <div>
-            <h3 className="text-sm font-medium">Tracked repositories</h3>
-            <p className="text-muted-foreground text-xs">
-              Track every repo prq can access, or select specific ones.
-            </p>
-          </div>
+          <h3 className="text-sm font-medium">Tracked repositories</h3>
           <Controller
             name="tracking"
             control={form.control}

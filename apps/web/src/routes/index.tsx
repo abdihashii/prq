@@ -178,9 +178,6 @@ function OnboardingEmptyState({
   return (
     <div className="border-input rounded-md border p-8 text-center">
       <h2 className="text-base font-medium">Pick the repos you want to track</h2>
-      <p className="text-muted-foreground mt-1 text-sm">
-        Track every repo prq can access, or choose specific ones to follow.
-      </p>
       <div className="mt-4 flex justify-center gap-2">
         <Button onClick={onTrackAll} size="sm">
           Track all

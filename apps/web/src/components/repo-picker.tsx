@@ -91,10 +91,6 @@ function RepoPickerActive({
     return (
       <div className="space-y-3">
         <ModeToggle mode="all" onSelect={handleModeSelect} />
-        <p className="text-muted-foreground text-sm">
-          Tracking all {trackableRepos.length}
-          {trackableRepos.length === 1 ? ' repo' : ' repos'} prq can access.
-        </p>
       </div>
     )
   }
