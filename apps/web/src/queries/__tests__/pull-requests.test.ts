@@ -27,29 +27,38 @@ describe('fetchPullRequests', () => {
   it('resolves with parsed DashboardResponse on 200 + valid body', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(200, validDashboardResponse)))
 
-    const result = await fetchPullRequests([])
+    const result = await fetchPullRequests(null)
 
     expect(result).toEqual(validDashboardResponse)
   })
 
-  it('fetches /api/prs without query string when trackedRepos is empty', async () => {
+  it('fetches /api/prs without query string when reposParam is null', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validDashboardResponse))
     vi.stubGlobal('fetch', fetchMock)
 
-    await fetchPullRequests([])
+    await fetchPullRequests(null)
 
     expect(fetchMock).toHaveBeenCalledWith('/api/prs')
   })
 
-  it('appends ?repos= with comma-joined slugs when trackedRepos is non-empty', async () => {
+  it('appends ?repos= with the encoded param string', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validDashboardResponse))
     vi.stubGlobal('fetch', fetchMock)
 
-    await fetchPullRequests(['vercel/next.js', 'facebook/react'])
+    await fetchPullRequests('vercel/next.js,facebook/react')
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/prs?repos=vercel%2Fnext.js%2Cfacebook%2Freact',
     )
+  })
+
+  it('appends an empty ?repos= when reposParam is an empty string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, validDashboardResponse))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await fetchPullRequests('')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/prs?repos=')
   })
 
   it('throws ApiError with code BAD_CREDENTIALS on 401', async () => {
@@ -60,7 +69,7 @@ describe('fetchPullRequests', () => {
       ),
     )
 
-    await expect(fetchPullRequests([])).rejects.toMatchObject({
+    await expect(fetchPullRequests(null)).rejects.toMatchObject({
       name: 'ApiError',
       code: 'BAD_CREDENTIALS',
       message: 'Session was rejected',
@@ -81,7 +90,7 @@ describe('fetchPullRequests', () => {
       ),
     )
 
-    const error = await fetchPullRequests([]).catch(e => e)
+    const error = await fetchPullRequests(null).catch(e => e)
 
     expect(error).toBeInstanceOf(ApiError)
     expect(error.code).toBe('RATE_LIMITED')
@@ -96,7 +105,7 @@ describe('fetchPullRequests', () => {
       ),
     )
 
-    await expect(fetchPullRequests([])).rejects.toMatchObject({
+    await expect(fetchPullRequests(null)).rejects.toMatchObject({
       name: 'ApiError',
       code: 'UPSTREAM_ERROR',
     })
@@ -105,6 +114,6 @@ describe('fetchPullRequests', () => {
   it('throws generic Error with HTTP status when error body does not match schema', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(500, { unexpected: 'shape' })))
 
-    await expect(fetchPullRequests([])).rejects.toThrow('HTTP 500')
+    await expect(fetchPullRequests(null)).rejects.toThrow('HTTP 500')
   })
 })

@@ -31,22 +31,57 @@ export function storageKey(viewerLogin: string): string {
  *
  * @example
  * readSettings('haji')
- * // => { pollingMs: 30000, trackedRepos: [] } (first read, no storage yet)
+ * // => { pollingMs: 30000, tracking: null } (first read, no storage yet)
  *
  * @example
- * // After writeSettings('haji', { pollingMs: 60000, trackedRepos: ['a/b'] })
+ * // After writeSettings('haji', { pollingMs: 60000, tracking: { mode: 'custom', repos: ['a/b'] } })
  * readSettings('haji')
- * // => { pollingMs: 60000, trackedRepos: ['a/b'] }
+ * // => { pollingMs: 60000, tracking: { mode: 'custom', repos: ['a/b'] } }
  */
 export function readSettings(viewerLogin: string): Settings {
   try {
     const raw = window.localStorage.getItem(storageKey(viewerLogin))
     if (raw === null) return DEFAULT_SETTINGS
-    return SettingsSchema.parse(JSON.parse(raw))
+    return SettingsSchema.parse(migrateLegacy(JSON.parse(raw)))
   }
   catch {
     return DEFAULT_SETTINGS
   }
+}
+
+/**
+ * Migrate a legacy stored value (pre two-mode tracking) into the current
+ * `Settings` shape. A legacy value has a `trackedRepos` array and no
+ * `tracking` key; it becomes Custom tracking when non-empty, else unseeded
+ * (`tracking: null`). Non-legacy values pass through untouched.
+ *
+ * @param raw - Parsed JSON read from storage.
+ * @returns The migrated object, or `raw` when no migration applies.
+ *
+ * @example
+ * migrateLegacy({ pollingMs: 60000, trackedRepos: ['a/b'] })
+ * // => { pollingMs: 60000, tracking: { mode: 'custom', repos: ['a/b'] } }
+ *
+ * @example
+ * migrateLegacy({ pollingMs: 60000, trackedRepos: [] })
+ * // => { pollingMs: 60000, tracking: null }
+ */
+function migrateLegacy(raw: unknown): unknown {
+  if (
+    typeof raw === 'object'
+    && raw !== null
+    && Array.isArray((raw as { trackedRepos?: unknown }).trackedRepos)
+    && !('tracking' in raw)
+  ) {
+    const legacy = raw as { pollingMs: unknown, trackedRepos: string[] }
+    return {
+      pollingMs: legacy.pollingMs,
+      tracking: legacy.trackedRepos.length > 0
+        ? { mode: 'custom', repos: legacy.trackedRepos }
+        : null,
+    }
+  }
+  return raw
 }
 
 /**

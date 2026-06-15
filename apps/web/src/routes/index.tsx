@@ -14,6 +14,11 @@ import { useSettings } from '@/hooks/use-settings'
 import { useTheme } from '@/hooks/use-theme'
 import { ApiError } from '@/lib/api-error'
 import { countDisplayItemPrs } from '@/lib/dashboard-display/dashboard-display'
+import {
+  seedTracking,
+  TRACKING_ALL_THRESHOLD,
+  UNSEEDED_TRACKING,
+} from '@/lib/tracking/tracking'
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -25,14 +30,25 @@ function Home() {
   // we just deleted the cookie, or a previous fetch already returned 401).
   const [signedOut, setSignedOut] = useState(false)
 
-  const { pollingMs, trackedRepos, setPollingMs, setTrackedRepos } = useSettings(viewerLogin)
+  const { pollingMs, tracking, setPollingMs, setTracking } = useSettings(viewerLogin)
   const { resolvedTheme, setTheme } = useTheme()
-  const query = usePullRequests({ pollingMs, trackedRepos, enabled: !signedOut })
+  const effectiveTracking = tracking ?? UNSEEDED_TRACKING
+  const query = usePullRequests({ pollingMs, tracking: effectiveTracking, enabled: !signedOut })
 
   useEffect(() => {
     const next = query.data?.viewerLogin ?? null
     if (next !== null && next !== viewerLogin) setViewerLogin(next)
   }, [query.data?.viewerLogin, viewerLogin])
+
+  // Seed a fresh viewer's tracking mode from their install-scope size once the
+  // dashboard data (and thus trackableRepos) is available. Small scope -> All;
+  // large scope -> empty Custom (guided pick).
+  const trackableReposData = query.data?.trackableRepos
+  useEffect(() => {
+    if (tracking === null && viewerLogin !== null && trackableReposData !== undefined) {
+      setTracking(seedTracking(trackableReposData, TRACKING_ALL_THRESHOLD))
+    }
+  }, [tracking, viewerLogin, trackableReposData, setTracking])
 
   const fatalAuthError =
     signedOut
@@ -64,14 +80,16 @@ function Home() {
     setSignedOut(!nowSignedIn)
   }
   // Gate on viewerLogin so the empty state can't render in the brief window
-  // between query resolution and useSettings hydrating from localStorage —
+  // between query resolution and useSettings hydrating from localStorage,
   // otherwise returning users see an onboarding flash before their persisted
-  // trackedRepos load.
+  // tracking loads. Show the guided-pick state only once tracking has resolved
+  // to empty Custom.
   const showOnboarding
     = !fatalAuthError
       && query.data !== undefined
       && viewerLogin !== null
-      && trackedRepos.length === 0
+      && effectiveTracking.mode === 'custom'
+      && effectiveTracking.repos.length === 0
 
   return (
     <>
@@ -79,12 +97,12 @@ function Home() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         pollingMs={pollingMs}
-        trackedRepos={trackedRepos}
+        tracking={effectiveTracking}
         trackableRepos={trackableRepos}
         trackableReposLoading={trackableReposLoading}
         resolvedTheme={resolvedTheme}
         onPollingMsChange={setPollingMs}
-        onTrackedReposChange={setTrackedRepos}
+        onTrackingChange={setTracking}
         onThemeChange={setTheme}
         onAuthChange={handleAuthChange}
         signedOut={signedOut}
@@ -122,7 +140,7 @@ function Home() {
 
           {showOnboarding ? (
             <OnboardingEmptyState onOpenSettings={() => setSettingsOpen(true)} />
-          ) : query.data ? (
+          ) : query.data && tracking !== null ? (
             <Dashboard data={query.data} />
           ) : (
             <DashboardSkeleton />

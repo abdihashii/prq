@@ -13,7 +13,7 @@ describe('useSettings', () => {
   it('returns DEFAULT_SETTINGS while viewerLogin is null', () => {
     const { result } = renderHook(() => useSettings(null))
     expect(result.current.pollingMs).toBe(DEFAULT_SETTINGS.pollingMs)
-    expect(result.current.trackedRepos).toEqual(DEFAULT_SETTINGS.trackedRepos)
+    expect(result.current.tracking).toEqual(DEFAULT_SETTINGS.tracking)
   })
 
   it('does not touch localStorage while viewerLogin is null', () => {
@@ -27,11 +27,11 @@ describe('useSettings', () => {
   it('hydrates from localStorage once viewerLogin resolves', () => {
     window.localStorage.setItem(
       'prq:settings:haji',
-      JSON.stringify({ pollingMs: 120_000, trackedRepos: ['foo/bar'] }),
+      JSON.stringify({ pollingMs: 120_000, tracking: { mode: 'custom', repos: ['foo/bar'] } }),
     )
     const { result } = renderHook(() => useSettings('haji'))
     expect(result.current.pollingMs).toBe(120_000)
-    expect(result.current.trackedRepos).toEqual(['foo/bar'])
+    expect(result.current.tracking).toEqual({ mode: 'custom', repos: ['foo/bar'] })
   })
 
   it('persists setPollingMs to the viewer-keyed storage', () => {
@@ -42,28 +42,28 @@ describe('useSettings', () => {
     expect(result.current.pollingMs).toBe(300_000)
     expect(
       JSON.parse(window.localStorage.getItem('prq:settings:haji') ?? '{}'),
-    ).toEqual({ pollingMs: 300_000, trackedRepos: [] })
+    ).toEqual({ pollingMs: 300_000, tracking: null })
   })
 
-  it('persists setTrackedRepos to the viewer-keyed storage', () => {
+  it('persists setTracking to the viewer-keyed storage', () => {
     const { result } = renderHook(() => useSettings('haji'))
     act(() => {
-      result.current.setTrackedRepos(['vercel/next.js'])
+      result.current.setTracking({ mode: 'custom', repos: ['vercel/next.js'] })
     })
-    expect(result.current.trackedRepos).toEqual(['vercel/next.js'])
+    expect(result.current.tracking).toEqual({ mode: 'custom', repos: ['vercel/next.js'] })
     expect(
       JSON.parse(window.localStorage.getItem('prq:settings:haji') ?? '{}'),
-    ).toEqual({ pollingMs: 30_000, trackedRepos: ['vercel/next.js'] })
+    ).toEqual({ pollingMs: 30_000, tracking: { mode: 'custom', repos: ['vercel/next.js'] } })
   })
 
   it('re-hydrates when viewerLogin changes (account swap)', () => {
     window.localStorage.setItem(
       'prq:settings:haji',
-      JSON.stringify({ pollingMs: 60_000, trackedRepos: ['a/b'] }),
+      JSON.stringify({ pollingMs: 60_000, tracking: { mode: 'custom', repos: ['a/b'] } }),
     )
     window.localStorage.setItem(
       'prq:settings:work-haji',
-      JSON.stringify({ pollingMs: 300_000, trackedRepos: ['c/d'] }),
+      JSON.stringify({ pollingMs: 300_000, tracking: { mode: 'custom', repos: ['c/d'] } }),
     )
 
     const { result, rerender } = renderHook(
@@ -74,17 +74,17 @@ describe('useSettings', () => {
 
     rerender({ viewer: 'work-haji' })
     expect(result.current.pollingMs).toBe(300_000)
-    expect(result.current.trackedRepos).toEqual(['c/d'])
+    expect(result.current.tracking).toEqual({ mode: 'custom', repos: ['c/d'] })
   })
 
   it('does not write previous viewer\'s in-memory settings under the new viewer\'s key on swap', () => {
     window.localStorage.setItem(
       'prq:settings:viewer-a',
-      JSON.stringify({ pollingMs: 60_000, trackedRepos: ['a/repo1'] }),
+      JSON.stringify({ pollingMs: 60_000, tracking: { mode: 'custom', repos: ['a/repo1'] } }),
     )
     window.localStorage.setItem(
       'prq:settings:viewer-b',
-      JSON.stringify({ pollingMs: 300_000, trackedRepos: ['b/repo2'] }),
+      JSON.stringify({ pollingMs: 300_000, tracking: { mode: 'custom', repos: ['b/repo2'] } }),
     )
 
     const { result, rerender } = renderHook(
@@ -94,7 +94,7 @@ describe('useSettings', () => {
 
     // Mutate in-memory state for viewer-a so it diverges from any other key.
     act(() => {
-      result.current.setTrackedRepos(['a/repo1', 'a/repo3'])
+      result.current.setTracking({ mode: 'custom', repos: ['a/repo1', 'a/repo3'] })
     })
 
     // Spy AFTER the in-memory mutation lands so we only observe writes
@@ -107,11 +107,12 @@ describe('useSettings', () => {
     )
     for (const [, value] of writesToB) {
       const parsed = JSON.parse(value)
+      const repos = parsed.tracking?.repos ?? []
       expect(
-        parsed.trackedRepos,
+        repos,
         `viewer-b storage written with viewer-a-tainted data: ${value}`,
       ).not.toContain('a/repo3')
-      expect(parsed.trackedRepos).not.toContain('a/repo1')
+      expect(repos).not.toContain('a/repo1')
     }
 
     setItemSpy.mockRestore()

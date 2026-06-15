@@ -1,12 +1,11 @@
-import type { DashboardResponse, TrackedRepos } from '@prq/shared'
+import type { DashboardResponse } from '@prq/shared'
 import { ApiErrorSchema, DashboardResponseSchema } from '@prq/shared'
 import { ApiError } from '@/lib/api-error'
 
-export async function fetchPullRequests(trackedRepos: TrackedRepos): Promise<DashboardResponse> {
-  const params = new URLSearchParams()
-  if (trackedRepos.length > 0) params.set('repos', trackedRepos.join(','))
-  const qs = params.toString()
-  const url = qs ? `/api/prs?${qs}` : '/api/prs'
+export async function fetchPullRequests(reposParam: string | null): Promise<DashboardResponse> {
+  const url = reposParam === null
+    ? '/api/prs'
+    : `/api/prs?repos=${encodeURIComponent(reposParam)}`
 
   const response = await fetch(url)
   if (!response.ok) {

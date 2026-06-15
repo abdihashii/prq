@@ -6,6 +6,7 @@ import {
   SettingsSchema,
   ThemeSchema,
   TrackedReposSchema,
+  TrackingStateSchema,
 } from '../settings'
 
 describe('PollingMsSchema', () => {
@@ -52,9 +53,45 @@ describe('ThemeSchema', () => {
   })
 })
 
+describe('TrackingStateSchema', () => {
+  it('accepts the all variant', () => {
+    expect(TrackingStateSchema.parse({ mode: 'all' })).toEqual({ mode: 'all' })
+  })
+
+  it('accepts the custom variant with repos', () => {
+    const custom = { mode: 'custom', repos: ['foo/bar'] }
+    expect(TrackingStateSchema.parse(custom)).toEqual(custom)
+  })
+
+  it('accepts the custom variant with empty repos', () => {
+    expect(TrackingStateSchema.parse({ mode: 'custom', repos: [] })).toEqual({
+      mode: 'custom',
+      repos: [],
+    })
+  })
+
+  it('rejects an unknown mode', () => {
+    expect(() => TrackingStateSchema.parse({ mode: 'some-other' })).toThrow()
+  })
+
+  it('rejects custom with invalid repo slugs', () => {
+    expect(() => TrackingStateSchema.parse({ mode: 'custom', repos: ['no-slash'] })).toThrow()
+  })
+})
+
 describe('SettingsSchema', () => {
-  it('parses valid settings round-trip', () => {
-    const valid = { pollingMs: 60_000, trackedRepos: ['foo/bar'] }
+  it('parses valid settings round-trip (custom)', () => {
+    const valid = { pollingMs: 60_000, tracking: { mode: 'custom', repos: ['foo/bar'] } }
+    expect(SettingsSchema.parse(valid)).toEqual(valid)
+  })
+
+  it('parses valid settings round-trip (all)', () => {
+    const valid = { pollingMs: 60_000, tracking: { mode: 'all' } }
+    expect(SettingsSchema.parse(valid)).toEqual(valid)
+  })
+
+  it('parses valid settings round-trip (unseeded tracking)', () => {
+    const valid = { pollingMs: 60_000, tracking: null }
     expect(SettingsSchema.parse(valid)).toEqual(valid)
   })
 
@@ -63,12 +100,12 @@ describe('SettingsSchema', () => {
   })
 
   it('falls back to DEFAULT_SETTINGS on invalid pollingMs', () => {
-    expect(SettingsSchema.parse({ pollingMs: 99, trackedRepos: [] })).toEqual(DEFAULT_SETTINGS)
+    expect(SettingsSchema.parse({ pollingMs: 99, tracking: null })).toEqual(DEFAULT_SETTINGS)
   })
 
-  it('falls back to DEFAULT_SETTINGS on invalid trackedRepos entry', () => {
+  it('falls back to DEFAULT_SETTINGS on invalid tracking', () => {
     expect(
-      SettingsSchema.parse({ pollingMs: 30_000, trackedRepos: ['no-slash'] }),
+      SettingsSchema.parse({ pollingMs: 30_000, tracking: { mode: 'custom', repos: ['no-slash'] } }),
     ).toEqual(DEFAULT_SETTINGS)
   })
 

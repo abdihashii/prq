@@ -20,6 +20,7 @@ export {
   SettingsSchema,
   ThemeSchema,
   TrackedReposSchema,
+  TrackingStateSchema,
 } from './schemas/settings'
 export { TokenHealthResponseSchema } from './schemas/auth'
 
@@ -34,7 +35,7 @@ export type {
 export type { ApiErrorCode, ApiErrorPayload, RateLimit } from './types/contract'
 export type { TrackableRepo } from './types/trackableRepo'
 export type { Installation } from './types/installation'
-export type { PollingMs, Settings, Theme, TrackedRepos } from './types/settings'
+export type { PollingMs, Settings, Theme, TrackedRepos, TrackingState } from './types/settings'
 export type { TokenHealthResponse } from './types/auth'
 
 export { assignBucket } from './lib/bucket'
