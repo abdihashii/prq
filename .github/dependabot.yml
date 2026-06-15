@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Keep the commit-SHA-pinned GitHub Actions fresh (security patches without
+  # losing immutable pins). npm/pnpm dependency updates are intentionally out of
+  # scope here; that hardening is tracked separately (#24).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # One grouped PR for all action bumps instead of one-per-action (less noise).
+    groups:
+      actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
