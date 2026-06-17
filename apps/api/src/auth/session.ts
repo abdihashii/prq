@@ -213,6 +213,7 @@ export async function completeGitHubAppCallback(
     now,
   })
   const user = await fetchGitHubViewer(tokenSet.accessToken, fetchImpl)
+  verifyUserAllowed(user, config.allowedUserIds)
   const installations = await fetchGitHubUserInstallations(tokenSet.accessToken, fetchImpl)
   verifyCallbackInstallation(c.req.query('installation_id'), installations)
 
@@ -670,6 +671,18 @@ function verifyCallbackInstallation(
   throw new GitHubAppAuthFlowError(
     'GitHub callback referenced an installation this user cannot access',
     'installation_unverified',
+  )
+}
+
+function verifyUserAllowed(
+  user: GitHubUserRecord,
+  allowedUserIds: readonly string[],
+): void {
+  if (allowedUserIds.includes(user.githubId)) return
+
+  throw new GitHubAppAuthFlowError(
+    'This GitHub account is not permitted to sign in',
+    'user_not_allowed',
   )
 }
 

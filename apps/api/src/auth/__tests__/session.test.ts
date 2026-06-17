@@ -17,6 +17,7 @@ const CONFIG: GitHubAppAuthConfig = {
   clientSecret: 'secret-1',
   callbackUrl: 'http://localhost:3001/api/auth/github/callback',
   webUrl: 'http://localhost:5173/',
+  allowedUserIds: ['1001'],
 }
 
 function makeStore(overrides: Partial<AuthStore> = {}): AuthStore {
@@ -201,6 +202,72 @@ describe('completeGitHubAppCallback', () => {
     expect(await res.json()).toEqual({
       name: 'GitHubAppAuthFlowError',
       code: 'installation_unverified',
+    })
+    expect(store.createSession).not.toHaveBeenCalled()
+  })
+
+  async function runCallbackWithAllowedUserIds(
+    allowedUserIds: readonly string[],
+  ): Promise<{ res: Response, store: AuthStore }> {
+    const store = makeStore()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === 'https://github.com/login/oauth/access_token') {
+        return jsonResponse({ access_token: 'access-1' })
+      }
+      if (url === 'https://api.github.com/user') {
+        return jsonResponse({ id: 1001, login: 'haji' })
+      }
+      return jsonResponse({ error: 'unexpected url' }, 500)
+    })
+
+    const app = new Hono()
+    app.get('/callback', async (c) => {
+      try {
+        await completeGitHubAppCallback(c, {
+          config: { ...CONFIG, allowedUserIds },
+          store,
+          fetch: fetchMock,
+          now: () => NOW,
+          createSessionId: () => 'session-plain',
+        })
+        return c.text('unexpected', 500)
+      }
+      catch (err) {
+        return c.json({
+          name: err instanceof Error ? err.name : 'unknown',
+          code: err && typeof err === 'object' && 'code' in err
+            ? (err as { code: string }).code
+            : null,
+        }, 400)
+      }
+    })
+
+    const res = await app.request('/callback?code=code-1&state=state-1', {
+      headers: { cookie: 'prq_oauth_state=state-1; prq_oauth_verifier=verifier-1' },
+    })
+    return { res, store }
+  }
+
+  it('rejects a user whose id is not on the allowlist', async () => {
+    const { res, store } = await runCallbackWithAllowedUserIds(['9999'])
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      name: 'GitHubAppAuthFlowError',
+      code: 'user_not_allowed',
+    })
+    expect(store.upsertUser).not.toHaveBeenCalled()
+    expect(store.createSession).not.toHaveBeenCalled()
+  })
+
+  it('denies every user when the allowlist is empty (fail-closed)', async () => {
+    const { res, store } = await runCallbackWithAllowedUserIds([])
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      name: 'GitHubAppAuthFlowError',
+      code: 'user_not_allowed',
     })
     expect(store.createSession).not.toHaveBeenCalled()
   })

@@ -19,6 +19,7 @@ describe('resolveGitHubAppAuthConfig', () => {
       clientSecret: '',
       callbackUrl: `${LOCAL_GITHUB_CALLBACK_URL}`,
       webUrl: `${LOCAL_WEB_URL}/`,
+      allowedUserIds: [],
     })
   })
 
@@ -35,7 +36,26 @@ describe('resolveGitHubAppAuthConfig', () => {
       callbackUrl: 'https://api.example.com/api/auth/github/callback',
       webUrl: 'https://app.example.com/',
       appSlug: 'prq-dev',
+      allowedUserIds: [],
     })
+  })
+
+  it('parses and trims the allowed user IDs', () => {
+    expect(resolveGitHubAppAuthConfig({
+      PRQ_GITHUB_ALLOWED_USER_IDS: ' 583231, 9919 ',
+    }).allowedUserIds).toEqual(['583231', '9919'])
+  })
+
+  it('treats an unset or empty allowlist as deny-all (fail-closed)', () => {
+    expect(resolveGitHubAppAuthConfig({}).allowedUserIds).toEqual([])
+    expect(resolveGitHubAppAuthConfig({ PRQ_GITHUB_ALLOWED_USER_IDS: '  ' }).allowedUserIds)
+      .toEqual([])
+  })
+
+  it('rejects a non-numeric allowed user ID', () => {
+    expect(() => resolveGitHubAppAuthConfig({
+      PRQ_GITHUB_ALLOWED_USER_IDS: 'octocat',
+    })).toThrow('PRQ_GITHUB_ALLOWED_USER_IDS must be a comma-separated list of numeric GitHub user IDs')
   })
 
   it('reports missing required GitHub App OAuth credentials', () => {
@@ -97,6 +117,7 @@ describe('resolveRequestConfig', () => {
         clientSecret: 'secret-1',
         callbackUrl: LOCAL_GITHUB_CALLBACK_URL,
         webUrl: `${LOCAL_WEB_URL}/`,
+        allowedUserIds: [],
       },
       mutationConfig: { clientId: 'client-1', privateKey: 'key-1' },
       webhookSecret: 'whsec-1',

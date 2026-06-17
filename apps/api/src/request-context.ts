@@ -32,6 +32,7 @@ export interface WorkerBindings {
   PRQ_GITHUB_CALLBACK_URL?: string
   PRQ_WEB_URL?: string
   PRQ_GITHUB_APP_SLUG?: string
+  PRQ_GITHUB_ALLOWED_USER_IDS?: string
   NODE_ENV?: string
 }
 
