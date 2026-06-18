@@ -1,8 +1,7 @@
 # PRQ — Product Requirements Document
 
 **Author:** Abdirahman Haji
-**Last updated:** June 7, 2026
-**Status:** Spec locked, implementation in progress
+**Last updated:** June 17, 2026
 
 ---
 
@@ -65,7 +64,7 @@ These are the principles that decide what goes in and what stays out. They are O
 - Hosted dashboard accessed via web browser
 - GitHub App-based authentication and authorization (not PAT)
 - Webhook-driven state updates with eventual-consistency fallback
-- Aggregated PR view across every repo the App is installed on, including authored PRs and PRs requesting the user's review, with statuses for draft, ready, blocked on review, comments unresolved, CI failing, and mergeable
+- Aggregated PR view across the repos the user tracks (a curated subset of where the App is installed), including authored PRs and PRs requesting the user's review, with statuses for draft, ready, blocked on review, comments unresolved, CI failing, and mergeable
 - Stack detection by inference: if PR B's base branch is PR A's head branch, they form a stack
 - Inline nested rendering: children visually nest under the bottom PR, no separate stack view or tab
 - Automatic base retargeting: when a parent PR merges, PRQ retargets the child PR's base via the GitHub API
