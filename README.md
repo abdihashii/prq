@@ -28,6 +28,11 @@ The product direction is locked in [docs/spec.md](docs/spec.md). The setup below
   9. Subscribe to Installation, Installation repositories, Repository, Pull request, and Pull request review events.
   10. Copy the **Client ID**, generate a **Client secret** and **Private key**, and add them with the webhook secret to `apps/api/.env`.
 
+PRQ also gates **who** may sign in. Set `PRQ_GITHUB_ALLOWED_USER_IDS` in `apps/api/.env`
+to a comma-separated list of the numeric GitHub user IDs allowed to sign in (find yours
+at `https://api.github.com/users/<your-username>`, the `id` field). Sign-in is
+fail-closed: an empty or unset list denies everyone.
+
 ## Setup
 
 ```sh
@@ -36,6 +41,7 @@ cd prq
 pnpm install
 cp apps/api/.env.example apps/api/.env
 # paste your GitHub App Client ID, Client secret, Private key, and webhook secret into apps/api/.env
+# and set PRQ_GITHUB_ALLOWED_USER_IDS to your numeric GitHub user ID (sign-in is fail-closed)
 docker compose up -d postgres
 pnpm db:migrate
 ```
@@ -63,7 +69,7 @@ Then open http://localhost:5173 and click **Sign in with GitHub**.
 ```
 apps/
   api/      Hono server for GitHub App auth, stored dashboard reads, and webhook sync state
-  web/      React + Vite dashboard (TanStack Router/Query, Tailwind)
+  web/      React dashboard (TanStack Start SPA mode, Router/Query, Tailwind, Vite)
 packages/
   shared/   Zod schemas and types shared between api and web
 ```
