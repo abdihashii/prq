@@ -19,7 +19,11 @@
   "vars": {
     "NODE_ENV": "production",
     "PRQ_WEB_URL": "https://app.useprq.com",
-    "PRQ_GITHUB_CALLBACK_URL": "https://app.useprq.com/api/auth/github/callback"
+    "PRQ_GITHUB_CALLBACK_URL": "https://app.useprq.com/api/auth/github/callback",
+    // Slug of the public GitHub App; builds the install redirect
+    // (github.com/apps/<slug>/installations/new). Non-secret (it's in the public
+    // App URL), so it lives here next to the other non-secret config.
+    "PRQ_GITHUB_APP_SLUG": "prq-dev-abdihashii"
   },
   "hyperdrive": [
     {
