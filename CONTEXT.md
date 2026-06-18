@@ -35,6 +35,12 @@ The installation-based identity PRQ uses for both authentication and repo access
 Never a personal access token.
 _Avoid_: OAuth app, token, PAT
 
+**Allowed account**:
+A GitHub account permitted to complete sign-in. The sign-in gate denies every account
+not on the list; an empty list denies all (fail-closed). Identified by numeric GitHub
+user ID, never login.
+_Avoid_: allowlist, whitelist
+
 **Install scope**:
 The set of repositories a GitHub App installation grants PRQ access to; the outer
 bound of everything PRQ can surface for a user. Curated on GitHub, never inside PRQ.

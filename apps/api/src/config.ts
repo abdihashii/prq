@@ -15,6 +15,7 @@ export interface GitHubAppAuthConfig {
   callbackUrl: string
   webUrl: string
   appSlug?: string
+  allowedUserIds: readonly string[]
 }
 
 export interface GitHubAppMutationConfig {
@@ -38,6 +39,7 @@ export function resolveGitHubAppAuthConfig(env: Env = process.env): GitHubAppAut
   )
   const webUrl = resolveHttpUrl(env['PRQ_WEB_URL'], LOCAL_WEB_URL, 'PRQ_WEB_URL')
   const appSlug = emptyToUndefined(env['PRQ_GITHUB_APP_SLUG'])
+  const allowedUserIds = parseAllowedUserIds(env['PRQ_GITHUB_ALLOWED_USER_IDS'])
 
   return {
     clientId,
@@ -45,6 +47,7 @@ export function resolveGitHubAppAuthConfig(env: Env = process.env): GitHubAppAut
     callbackUrl,
     webUrl,
     ...(appSlug ? { appSlug } : {}),
+    allowedUserIds,
   }
 }
 
@@ -162,6 +165,27 @@ function throwIfMissing(missing: string[]): void {
 function emptyToUndefined(value: string | undefined): string | undefined {
   const trimmed = value?.trim()
   return trimmed === '' ? undefined : trimmed
+}
+
+/**
+ * Parse a comma-separated list of numeric GitHub user IDs allowed to sign in.
+ *
+ * @param value - Raw env value, e.g. "583231, 9919".
+ * @returns Trimmed, non-empty IDs. Empty list when unset (fail-closed: denies all).
+ * @throws If any entry is not all-digits, catching a login pasted in place of an ID.
+ */
+function parseAllowedUserIds(value: string | undefined): string[] {
+  const trimmed = emptyToUndefined(value)
+  if (!trimmed) return []
+  const ids = trimmed.split(',').map(id => id.trim()).filter(Boolean)
+  for (const id of ids) {
+    if (!/^\d+$/.test(id)) {
+      throw new Error(
+        'PRQ_GITHUB_ALLOWED_USER_IDS must be a comma-separated list of numeric GitHub user IDs',
+      )
+    }
+  }
+  return ids
 }
 
 function normalizePrivateKey(value: string): string {
