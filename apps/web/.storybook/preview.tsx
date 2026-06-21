@@ -20,6 +20,13 @@ const preview: Preview = {
   ],
   parameters: {
     backgrounds: { disable: true },
+    options: {
+      // Sort groups and components alphabetically, but leave stories within a
+      // component in their declared order (equal titles -> 0) so curated
+      // sequences like PrRow's Review -> Attention -> Ready stay intact.
+      storySort: (a, b) =>
+        a.title === b.title ? 0 : a.title.localeCompare(b.title, undefined, { numeric: true }),
+    },
   },
 }
 

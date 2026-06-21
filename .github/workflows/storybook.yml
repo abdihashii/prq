@@ -1,0 +1,59 @@
+name: Storybook
+
+# Builds the Storybook static site so a broken story or preview config fails CI,
+# and uploads storybook-static as a downloadable artifact. Verification only;
+# this workflow never deploys or publishes the build.
+on:
+  # Manual "Run workflow" button for ad-hoc builds.
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    # Stories live in apps/web and consume @prq/shared types + fixtures, so a
+    # shared change can also break the build.
+    paths:
+      - 'apps/web/**'
+      - 'packages/shared/**'
+      - '.github/workflows/storybook.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/shared/**'
+      - '.github/workflows/storybook.yml'
+
+# Least privilege: this job only reads the repo to build.
+permissions:
+  contents: read
+
+# Supersede in-flight builds for the same ref; a verification run is safe to cancel.
+concurrency:
+  group: storybook-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04 # pinned (not ubuntu-latest) for a reproducible image
+    timeout-minutes: 15
+    steps:
+      # Actions pinned to commit SHAs (tags are mutable); trailing comment = version.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # CI only reads the repo; don't persist GITHUB_TOKEN into .git/config.
+          persist-credentials: false
+      # action-setup BEFORE setup-node: cache:pnpm needs pnpm on PATH first.
+      # Version is read from package.json packageManager (pnpm@10.33.2).
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22 # matches root engines.node ">=22"; no .nvmrc exists
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # "run build-storybook", not "pnpm build-storybook": stays explicit and
+      # mirrors the deploy workflows' "run deploy" form.
+      - run: pnpm --filter @prq/web run build-storybook
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: storybook-static
+          path: apps/web/storybook-static
+          if-no-files-found: error
+          retention-days: 14
