@@ -6,6 +6,7 @@ import {
   TRACKABLE_REPOS,
 } from '@/lib/access-fixtures/access-fixtures'
 import { TOKEN_HEALTH } from '@/lib/auth-fixtures/auth-fixtures'
+import { TOKEN_HEALTH_QUERY_KEY } from '@/hooks/use-token-health'
 
 const noop = () => {}
 
@@ -27,7 +28,7 @@ const meta = {
     onAuthChange: noop,
     signedOut: false,
   },
-  decorators: [withQueryClient(client => client.setQueryData(['token-health'], TOKEN_HEALTH))],
+  decorators: [withQueryClient(client => client.setQueryData(TOKEN_HEALTH_QUERY_KEY, TOKEN_HEALTH))],
   parameters: {
     layout: 'fullscreen',
     docs: {

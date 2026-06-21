@@ -7,10 +7,10 @@ const config: StorybookConfig = {
   async viteFinal(config) {
     // Strip the app's server/runtime plugins: Storybook renders components in the
     // browser only. TanStack Start owns the `#tanstack-*` server virtual modules,
-    // and Cloudflare wires up the Workers SSR graph that imports them — leaving
+    // and Cloudflare wires up the Workers SSR graph that imports them. Leaving
     // Cloudflare in (while Start is stripped) leaves those imports unresolvable and
     // breaks dev's dependency optimizer.
-    const dropPattern = /^(@tanstack|tanstack)[/\-:]|cloudflare/
+    const dropPattern = /^@?tanstack[/\-:]|cloudflare/
     const flat = (config.plugins ?? []).flat(Infinity) as Array<{ name?: string } | null | false>
     config.plugins = flat.filter((plugin): plugin is { name?: string } => {
       if (!plugin || typeof plugin !== 'object') return false

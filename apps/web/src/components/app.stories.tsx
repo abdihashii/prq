@@ -14,6 +14,7 @@ import {
   TRACKABLE_REPOS,
 } from '@/lib/access-fixtures/access-fixtures'
 import { TOKEN_HEALTH } from '@/lib/auth-fixtures/auth-fixtures'
+import { TOKEN_HEALTH_QUERY_KEY } from '@/hooks/use-token-health'
 import type { DashboardDisplayBuckets } from '@/lib/dashboard-display/dashboard-display'
 import { ApiError } from '@/lib/api-error'
 import {
@@ -101,7 +102,7 @@ const meta = {
   title: 'Composites/App',
   component: FullApp,
   args: { data: BUCKETED_RESPONSE_POPULATED },
-  decorators: [withQueryClient(client => client.setQueryData(['token-health'], TOKEN_HEALTH))],
+  decorators: [withQueryClient(client => client.setQueryData(TOKEN_HEALTH_QUERY_KEY, TOKEN_HEALTH))],
   parameters: {
     layout: 'fullscreen',
     docs: {
