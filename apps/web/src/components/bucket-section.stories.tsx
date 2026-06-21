@@ -12,7 +12,7 @@ import {
 } from '@/lib/pr-fixtures/pr-fixtures'
 
 const meta: Meta<typeof BucketSection> = {
-  title: 'Composites/BucketSection',
+  title: 'Components/BucketSection',
   component: BucketSection,
   subcomponents: { PrRow } as Record<string, React.ComponentType<unknown>>,
   parameters: {

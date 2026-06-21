@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { SignInButton } from './sign-in-flow'
 
 const meta = {
-  title: 'Composites/SignInFlow',
+  title: 'Components/SignInFlow',
   component: SignInButton,
   parameters: {
     layout: 'padded',
