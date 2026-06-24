@@ -176,7 +176,7 @@ function Home() {
               onTrackAll={() => setTracking({ mode: 'all' })}
               onOpenSettings={() => setSettingsOpen(true)}
             />
-          ) : showDashboard && query.data ? (
+          ) : showDashboard ? (
             <Dashboard data={query.data} />
           ) : (
             <DashboardSkeleton />

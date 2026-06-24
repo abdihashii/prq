@@ -105,6 +105,12 @@ export interface AuthStore {
   ) => Promise<void>
   deleteSession: (sessionIdHash: string) => Promise<void>
   upsertInstallations: (installations: GitHubInstallationRecord[], now: Date) => Promise<void>
+  /**
+   * Clears the user's persisted scope-refresh timestamp so the next dashboard
+   * load crawls GitHub instead of serving a cached scope. Used after an app
+   * install changes which repositories the user can see.
+   */
+  markAuthorizedScopeStale: (githubUserId: string) => Promise<void>
 }
 
 export interface AuthDependencies {
@@ -283,6 +289,11 @@ export async function completeGitHubAppSetup(
       return c.redirect(buildWebRedirect(config.webUrl, { auth: 'installation_unverified' }), 302)
     }
 
+    // The install changed the user's repository scope, but webhooks never write
+    // githubUserRepositories. Invalidate the scope so the next dashboard load
+    // crawls GitHub and surfaces the newly accessible repositories.
+    await resolveStore(deps).markAuthorizedScopeStale(resolved.githubId)
+
     return c.redirect(buildWebRedirect(config.webUrl, { installation: 'connected' }), 302)
   }
   catch (err) {
@@ -439,6 +450,11 @@ export function createDrizzleAuthStore(db: Database = getDatabase().db): AuthSto
           },
         })
       }
+    },
+    async markAuthorizedScopeStale(githubUserId) {
+      await db.update(githubUsers)
+        .set({ authorizedScopeRefreshedAt: null })
+        .where(eq(githubUsers.githubId, githubUserId))
     },
   }
 }

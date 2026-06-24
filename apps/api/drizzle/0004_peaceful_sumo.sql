@@ -1,0 +1,1 @@
+ALTER TABLE "github_users" ADD COLUMN "authorized_scope_refreshed_at" timestamp with time zone;

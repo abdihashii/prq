@@ -80,6 +80,7 @@ const nullableTimestamp = (name: string) => timestamp(name, { withTimezone: true
 export const githubUsers = pgTable('github_users', {
   githubId: text('github_id').primaryKey(),
   login: text('login').notNull(),
+  authorizedScopeRefreshedAt: nullableTimestamp('authorized_scope_refreshed_at'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, table => [
