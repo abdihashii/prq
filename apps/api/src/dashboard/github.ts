@@ -26,6 +26,7 @@ import type {
 const GITHUB_API_URL = 'https://api.github.com'
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`
 const PAGE_SIZE = 100
+const SCOPE_REFRESH_INTERVAL_MS = 10 * 60 * 1000
 
 const GitHubIdSchema = z.union([z.string().min(1), z.number().int()]).transform(String)
 const DateSchema = z.string().datetime({ offset: true }).transform(value => new Date(value))
@@ -108,6 +109,17 @@ export function createGitHubDashboardAuthorization(dependencies: {
 
   return {
     async refresh(principal, now) {
+      // Gate the GitHub crawl on a freshness window: a null timestamp (never
+      // refreshed, or invalidated after an app install) is treated as stale and
+      // forces a crawl; otherwise read the persisted scope straight from the DB.
+      const scope = await store.loadAuthorizedScope(principal.githubId)
+      if (
+        scope.refreshedAt !== null
+        && now.getTime() - scope.refreshedAt.getTime() < SCOPE_REFRESH_INTERVAL_MS
+      ) {
+        return scope.repositories
+      }
+
       const installations = await fetchAllInstallations(principal.accessToken, fetchImpl)
       const repositorySnapshots: RepositorySnapshot[] = []
       for (const installation of installations) {

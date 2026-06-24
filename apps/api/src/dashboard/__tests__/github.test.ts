@@ -40,6 +40,16 @@ function repository(id: number) {
   }
 }
 
+function authorizedRepository() {
+  return {
+    githubRepositoryId: 'R_1',
+    githubInstallationId: '42',
+    owner: 'org',
+    name: 'repo-1',
+    dashboardReconciledAt: null,
+  }
+}
+
 function store(overrides: Partial<DashboardAuthorizationStore> = {}): DashboardAuthorizationStore {
   return {
     replaceSnapshot: vi.fn(async () => []),
@@ -143,6 +153,73 @@ describe('GitHub dashboard authorization refresh', () => {
     await expect(rateLimited.refresh(PRINCIPAL, NOW))
       .rejects.toBeInstanceOf(DashboardRateLimitedError)
     expect(authorizationStore.replaceSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('skips the GitHub crawl when the persisted scope is fresh', async () => {
+    const persisted = [authorizedRepository()]
+    const authorizationStore = store({
+      loadAuthorizedScope: vi.fn(async () => ({
+        // 5 minutes before NOW, inside the 10-minute window.
+        refreshedAt: new Date('2026-06-08T11:55:00.000Z'),
+        repositories: persisted,
+      })),
+    })
+    const fetchMock = vi.fn(async () => jsonResponse({}, 500))
+
+    const result = await createGitHubDashboardAuthorization({
+      store: authorizationStore,
+      fetch: fetchMock,
+    }).refresh(PRINCIPAL, NOW)
+
+    expect(result).toEqual(persisted)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(authorizationStore.replaceSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('crawls and replaces the snapshot when the persisted scope is stale', async () => {
+    const authorizationStore = store({
+      loadAuthorizedScope: vi.fn(async () => ({
+        // 15 minutes before NOW, past the 10-minute window.
+        refreshedAt: new Date('2026-06-08T11:45:00.000Z'),
+        repositories: [authorizedRepository()],
+      })),
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      if (url.pathname === '/user/installations') {
+        return jsonResponse({ total_count: 1, installations: [installation(42)] })
+      }
+      return jsonResponse({ total_count: 0, repositories: [] })
+    })
+
+    await createGitHubDashboardAuthorization({
+      store: authorizationStore,
+      fetch: fetchMock,
+    }).refresh(PRINCIPAL, NOW)
+
+    expect(fetchMock).toHaveBeenCalled()
+    expect(authorizationStore.replaceSnapshot).toHaveBeenCalledOnce()
+  })
+
+  it('crawls when the scope has never been refreshed', async () => {
+    const authorizationStore = store({
+      loadAuthorizedScope: vi.fn(async () => ({ refreshedAt: null, repositories: [] })),
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      if (url.pathname === '/user/installations') {
+        return jsonResponse({ total_count: 1, installations: [installation(42)] })
+      }
+      return jsonResponse({ total_count: 0, repositories: [] })
+    })
+
+    await createGitHubDashboardAuthorization({
+      store: authorizationStore,
+      fetch: fetchMock,
+    }).refresh(PRINCIPAL, NOW)
+
+    expect(fetchMock).toHaveBeenCalled()
+    expect(authorizationStore.replaceSnapshot).toHaveBeenCalledOnce()
   })
 })
 
