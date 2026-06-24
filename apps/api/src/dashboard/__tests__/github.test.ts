@@ -172,6 +172,7 @@ describe('GitHub dashboard authorization refresh', () => {
     }).refresh(PRINCIPAL, NOW)
 
     expect(result).toEqual(persisted)
+    expect(authorizationStore.loadAuthorizedScope).toHaveBeenCalledWith(PRINCIPAL.githubId)
     expect(fetchMock).not.toHaveBeenCalled()
     expect(authorizationStore.replaceSnapshot).not.toHaveBeenCalled()
   })

@@ -138,6 +138,58 @@ describe.skipIf(!RUN_INTEGRATION)('database-backed dashboard integration', () =>
     ))).toEqual([{ active: true }])
   })
 
+  it('stamps the scope refresh timestamp and serves the next refresh from the DB', async () => {
+    const crawlFetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input))
+      if (url.pathname === '/user/installations') {
+        return jsonResponse({
+          total_count: 1,
+          installations: [{
+            id: 'I_active',
+            account: { id: 'A_acme', login: 'acme', type: 'Organization' },
+            suspended_at: null,
+          }],
+        })
+      }
+      return jsonResponse({
+        total_count: 1,
+        repositories: [{
+          node_id: 'R_active',
+          name: 'rocket',
+          full_name: 'acme/rocket',
+          owner: { login: 'acme' },
+          default_branch: 'main',
+          private: false,
+          archived: false,
+        }],
+      })
+    })
+    const principal = { githubId: 'U_haji', login: 'haji', accessToken: 'token' }
+
+    // First refresh: seeded stamp is null, so it crawls, writes the snapshot,
+    // and stamps the refresh timestamp.
+    await createGitHubDashboardAuthorization({
+      store: createDrizzleDashboardAuthorizationStore(client.db),
+      fetch: crawlFetch,
+    }).refresh(principal, NOW)
+
+    expect(await client.db.select({
+      refreshedAt: githubUsers.authorizedScopeRefreshedAt,
+    }).from(githubUsers).where(eq(githubUsers.githubId, 'U_haji')))
+      .toEqual([{ refreshedAt: NOW }])
+
+    // Second refresh inside the window: must read from the DB without crawling.
+    const gatedFetch = vi.fn(async () => jsonResponse({ message: 'should not be called' }, 500))
+    const repositories = await createGitHubDashboardAuthorization({
+      store: createDrizzleDashboardAuthorizationStore(client.db),
+      fetch: gatedFetch,
+    }).refresh(principal, NOW)
+
+    expect(gatedFetch).not.toHaveBeenCalled()
+    expect(repositories.map(repository => `${repository.owner}/${repository.name}`))
+      .toEqual(['acme/rocket'])
+  })
+
   it('persists rich reconciliation state and advances the repository timestamp atomically', async () => {
     const reconciliationStore = createDrizzleDashboardReconciliationStore(client.db)
     await reconciliationStore.persist({
