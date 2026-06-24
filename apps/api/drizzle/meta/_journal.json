@@ -29,6 +29,13 @@
       "when": 1781027294405,
       "tag": "0003_military_saracen",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782261087400,
+      "tag": "0004_peaceful_sumo",
+      "breakpoints": true
     }
   ]
 }
