@@ -121,18 +121,19 @@ export function createGitHubDashboardAuthorization(dependencies: {
       }
 
       const installations = await fetchAllInstallations(principal.accessToken, fetchImpl)
-      const repositorySnapshots: RepositorySnapshot[] = []
-      for (const installation of installations) {
-        const installationRepositories = await fetchAllInstallationRepositories(
-          installation.githubInstallationId,
-          principal.accessToken,
-          fetchImpl,
-        )
-        repositorySnapshots.push(...installationRepositories.map(repository => ({
-          ...repository,
-          githubInstallationId: installation.githubInstallationId,
-        })))
-      }
+      const repositorySnapshots = (await Promise.all(
+        installations.map(async (installation) => {
+          const installationRepositories = await fetchAllInstallationRepositories(
+            installation.githubInstallationId,
+            principal.accessToken,
+            fetchImpl,
+          )
+          return installationRepositories.map(repository => ({
+            ...repository,
+            githubInstallationId: installation.githubInstallationId,
+          }))
+        }),
+      )).flat()
 
       return store.replaceSnapshot({
         githubUserId: principal.githubId,
