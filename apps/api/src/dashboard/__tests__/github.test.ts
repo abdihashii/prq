@@ -40,8 +40,12 @@ function repository(id: number) {
   }
 }
 
-function store(): DashboardAuthorizationStore {
-  return { replaceSnapshot: vi.fn(async () => []) }
+function store(overrides: Partial<DashboardAuthorizationStore> = {}): DashboardAuthorizationStore {
+  return {
+    replaceSnapshot: vi.fn(async () => []),
+    loadAuthorizedScope: vi.fn(async () => ({ refreshedAt: null, repositories: [] })),
+    ...overrides,
+  }
 }
 
 describe('GitHub dashboard authorization refresh', () => {

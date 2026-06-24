@@ -6,6 +6,7 @@ import { defaultFetch } from '../fetch'
 import {
   githubInstallations,
   githubUserRepositories,
+  githubUsers,
   pullRequestReviewRequests,
   pullRequestReviews,
   pullRequests,
@@ -86,7 +87,17 @@ export interface DashboardAuthorizationStore {
     repositories: RepositorySnapshot[]
     now: Date
   }): Promise<AuthorizedRepository[]>
+  /**
+   * Reads the persisted authorized scope without crawling GitHub: the
+   * timestamp of the last scope refresh and the repositories already on record.
+   */
+  loadAuthorizedScope(githubUserId: string): Promise<{
+    refreshedAt: Date | null
+    repositories: AuthorizedRepository[]
+  }>
 }
+
+type DashboardDbExecutor = Database | Parameters<Parameters<Database['transaction']>[0]>[0]
 
 export function createGitHubDashboardAuthorization(dependencies: {
   store?: DashboardAuthorizationStore
@@ -205,32 +216,62 @@ export function createDrizzleDashboardAuthorizationStore(
             .where(eq(githubUserRepositories.githubUserId, args.githubUserId))
         }
 
-        return tx.select({
-          githubRepositoryId: repositories.githubRepositoryId,
-          githubInstallationId: repositories.githubInstallationId,
-          owner: repositories.owner,
-          name: repositories.name,
-          dashboardReconciledAt: repositories.dashboardReconciledAt,
-        }).from(githubUserRepositories)
-          .innerJoin(
-            repositories,
-            eq(githubUserRepositories.githubRepositoryId, repositories.githubRepositoryId),
-          )
-          .innerJoin(
-            githubInstallations,
-            eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
-          )
-          .where(and(
-            eq(githubUserRepositories.githubUserId, args.githubUserId),
-            eq(githubInstallations.active, true),
-          ))
-          .then(rows => rows.flatMap(row => row.githubInstallationId === null ? [] : [{
-            ...row,
-            githubInstallationId: row.githubInstallationId,
-          }]))
+        await tx.update(githubUsers)
+          .set({ authorizedScopeRefreshedAt: args.now })
+          .where(eq(githubUsers.githubId, args.githubUserId))
+
+        return readAuthorizedRepositories(tx, args.githubUserId)
       })
     },
+
+    async loadAuthorizedScope(githubUserId) {
+      const [userRows, authorizedRepositories] = await Promise.all([
+        db.select({ refreshedAt: githubUsers.authorizedScopeRefreshedAt })
+          .from(githubUsers)
+          .where(eq(githubUsers.githubId, githubUserId))
+          .limit(1),
+        readAuthorizedRepositories(db, githubUserId),
+      ])
+      return {
+        refreshedAt: userRows[0]?.refreshedAt ?? null,
+        repositories: authorizedRepositories,
+      }
+    },
   }
+}
+
+/**
+ * Reads the viewer's authorized repositories (those linked to the user and
+ * scoped to an active installation) straight from the database. Shared by the
+ * post-write snapshot return and the gated read so the join is defined once.
+ */
+function readAuthorizedRepositories(
+  executor: DashboardDbExecutor,
+  githubUserId: string,
+): Promise<AuthorizedRepository[]> {
+  return executor.select({
+    githubRepositoryId: repositories.githubRepositoryId,
+    githubInstallationId: repositories.githubInstallationId,
+    owner: repositories.owner,
+    name: repositories.name,
+    dashboardReconciledAt: repositories.dashboardReconciledAt,
+  }).from(githubUserRepositories)
+    .innerJoin(
+      repositories,
+      eq(githubUserRepositories.githubRepositoryId, repositories.githubRepositoryId),
+    )
+    .innerJoin(
+      githubInstallations,
+      eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
+    )
+    .where(and(
+      eq(githubUserRepositories.githubUserId, githubUserId),
+      eq(githubInstallations.active, true),
+    ))
+    .then(rows => rows.flatMap(row => row.githubInstallationId === null ? [] : [{
+      ...row,
+      githubInstallationId: row.githubInstallationId,
+    }]))
 }
 
 async function fetchAllInstallations(
