@@ -19,6 +19,7 @@ import {
   pullRequests,
   repositories,
 } from '../db/schema'
+import { mapWithConcurrency } from './concurrency'
 import { DashboardBadCredentialsError, DashboardUpstreamError } from './errors'
 import {
   createGitHubDashboardAuthorization,
@@ -93,7 +94,7 @@ export function createDashboardFacade(
           >= RECONCILIATION_INTERVAL_MS,
       )
 
-      await runWithConcurrency(repositoriesToReconcile, RECONCILIATION_CONCURRENCY, async (repository) => {
+      await mapWithConcurrency(repositoriesToReconcile, RECONCILIATION_CONCURRENCY, async (repository) => {
         try {
           await reconciler.reconcile(repository, principal, requestedAt)
         }
@@ -300,22 +301,6 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
       }
     },
   }
-}
-
-async function runWithConcurrency<T>(
-  values: T[],
-  concurrency: number,
-  task: (value: T) => Promise<void>,
-): Promise<void> {
-  let index = 0
-  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
-    while (index < values.length) {
-      const value = values[index]
-      index += 1
-      if (value !== undefined) await task(value)
-    }
-  })
-  await Promise.all(workers)
 }
 
 function projectDashboard(

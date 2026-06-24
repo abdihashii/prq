@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { AuthenticatedPrincipal } from '../auth/session'
 import { getDatabase, type Database } from '../db'
 import { defaultFetch } from '../fetch'
+import { mapWithConcurrency } from './concurrency'
 import {
   githubInstallations,
   githubUserRepositories,
@@ -27,6 +28,7 @@ const GITHUB_API_URL = 'https://api.github.com'
 const GITHUB_GRAPHQL_URL = `${GITHUB_API_URL}/graphql`
 const PAGE_SIZE = 100
 const SCOPE_REFRESH_INTERVAL_MS = 10 * 60 * 1000
+const INSTALLATION_CRAWL_CONCURRENCY = 4
 
 const GitHubIdSchema = z.union([z.string().min(1), z.number().int()]).transform(String)
 const DateSchema = z.string().datetime({ offset: true }).transform(value => new Date(value))
@@ -120,9 +122,14 @@ export function createGitHubDashboardAuthorization(dependencies: {
         return scope.repositories
       }
 
+      // Crawl installations with bounded concurrency. GitHub asks that requests
+      // for a single user be made serially-ish, not in an unbounded burst; a cap
+      // keeps a many-installation user from tripping secondary rate limits.
       const installations = await fetchAllInstallations(principal.accessToken, fetchImpl)
-      const repositorySnapshots = (await Promise.all(
-        installations.map(async (installation) => {
+      const repositorySnapshots = (await mapWithConcurrency(
+        installations,
+        INSTALLATION_CRAWL_CONCURRENCY,
+        async (installation) => {
           const installationRepositories = await fetchAllInstallationRepositories(
             installation.githubInstallationId,
             principal.accessToken,
@@ -132,7 +139,7 @@ export function createGitHubDashboardAuthorization(dependencies: {
             ...repository,
             githubInstallationId: installation.githubInstallationId,
           }))
-        }),
+        },
       )).flat()
 
       return store.replaceSnapshot({
