@@ -5,6 +5,7 @@ import {
   type AuthStore,
   beginGitHubAppSignIn,
   completeGitHubAppCallback,
+  completeGitHubAppSetup,
   createPkceChallenge,
   getAuthenticatedViewer,
   hashSessionId,
@@ -28,6 +29,7 @@ function makeStore(overrides: Partial<AuthStore> = {}): AuthStore {
     updateSessionTokens: vi.fn(async () => {}),
     deleteSession: vi.fn(async () => {}),
     upsertInstallations: vi.fn(async () => {}),
+    markAuthorizedScopeStale: vi.fn(async () => {}),
     ...overrides,
   }
 }
@@ -407,5 +409,80 @@ describe('getAuthenticatedViewer', () => {
 
     expect(res.status).toBe(401)
     expect(await res.json()).toEqual({ name: 'UnauthorizedError' })
+  })
+})
+
+describe('completeGitHubAppSetup', () => {
+  it('invalidates the user scope after verifying the install', async () => {
+    const store = makeStore({
+      findSession: vi.fn(async () => ({
+        sessionIdHash: hashSessionId('session-plain'),
+        githubUserId: '1001',
+        githubUserLogin: 'haji',
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        accessTokenExpiresAt: new Date('2026-05-31T20:00:00.000Z'),
+        refreshTokenExpiresAt: new Date('2026-12-01T12:00:00.000Z'),
+        expiresAt: new Date('2026-06-30T12:00:00.000Z'),
+      })),
+    })
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === 'https://api.github.com/user/installations') {
+        return jsonResponse({
+          installations: [
+            { id: 42, account: { id: 7, login: 'acme', type: 'Organization' } },
+          ],
+        })
+      }
+      return jsonResponse({ error: 'unexpected url' }, 500)
+    })
+
+    const app = new Hono()
+    app.get('/setup', c => completeGitHubAppSetup(c, {
+      config: CONFIG,
+      store,
+      fetch: fetchMock,
+      now: () => NOW,
+    }))
+
+    const res = await app.request('/setup?installation_id=42', {
+      headers: { cookie: 'prq_session=session-plain' },
+    })
+
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toContain('installation=connected')
+    expect(store.markAuthorizedScopeStale).toHaveBeenCalledWith('1001')
+  })
+
+  it('does not invalidate scope when the install cannot be verified', async () => {
+    const store = makeStore({
+      findSession: vi.fn(async () => ({
+        sessionIdHash: hashSessionId('session-plain'),
+        githubUserId: '1001',
+        githubUserLogin: 'haji',
+        accessToken: 'access-1',
+        refreshToken: 'refresh-1',
+        accessTokenExpiresAt: new Date('2026-05-31T20:00:00.000Z'),
+        refreshTokenExpiresAt: new Date('2026-12-01T12:00:00.000Z'),
+        expiresAt: new Date('2026-06-30T12:00:00.000Z'),
+      })),
+    })
+    const fetchMock = vi.fn(async () => jsonResponse({ installations: [] }))
+
+    const app = new Hono()
+    app.get('/setup', c => completeGitHubAppSetup(c, {
+      config: CONFIG,
+      store,
+      fetch: fetchMock,
+      now: () => NOW,
+    }))
+
+    const res = await app.request('/setup?installation_id=42', {
+      headers: { cookie: 'prq_session=session-plain' },
+    })
+
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toContain('installation_unverified')
+    expect(store.markAuthorizedScopeStale).not.toHaveBeenCalled()
   })
 })
