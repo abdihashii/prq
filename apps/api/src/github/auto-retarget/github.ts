@@ -105,6 +105,9 @@ function githubHeaders(token: string): Record<string, string> {
   return {
     accept: 'application/vnd.github+json',
     authorization: `Bearer ${token}`,
+    // GitHub's REST API 403s requests without a User-Agent (the token mint, now in
+    // installation-token.ts, sends one; the inspect/retarget calls here need it too).
+    'user-agent': 'prq',
     'x-github-api-version': GITHUB_API_VERSION,
   }
 }

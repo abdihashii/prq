@@ -48,6 +48,8 @@ describe('GitHub auto-retarget client', () => {
       permissions: { pull_requests: 'write' },
     })
     expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: 'GET' })
+    // GitHub's REST API 403s requests without a User-Agent.
+    expect(fetchMock.mock.calls[1]?.[1]?.headers).toMatchObject({ 'user-agent': 'prq' })
     expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
       method: 'PATCH',
       body: JSON.stringify({ base: 'main' }),
