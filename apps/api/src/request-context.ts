@@ -168,8 +168,13 @@ export function createAutoRetargetCronWorker(input: {
 /**
  * Build the background dashboard-reconcile worker for the Cron Trigger. Mirrors
  * createAutoRetargetCronWorker: it shares the reconciliation store between the
- * stale-list query and the reconciler, and mints installation-wide read tokens from
- * the App private key (the cron has no user session to borrow an OAuth token from).
+ * stale-list query and the reconciler, and mints installation-wide tokens from the
+ * App private key (the cron has no user session to borrow an OAuth token from).
+ *
+ * The token is minted with the App's full granted permission set (no `permissions`
+ * override): the reconcile query reads pull requests, check/status rollups, and
+ * commit data, which a pull_requests+metadata-only token cannot access, and
+ * requesting a permission the App was not granted would fail the whole mint.
  *
  * @param input.mutationConfig - Resolved GitHub App mutation config (client id + key).
  * @param input.db - The database handle for this invocation's lifetime.
@@ -186,7 +191,6 @@ export function createBackgroundReconcileCronWorker(input: {
     mintToken: installationId => createInstallationToken({
       installationId,
       config: input.mutationConfig,
-      permissions: { pull_requests: 'read', metadata: 'read' },
     }),
   })
 }

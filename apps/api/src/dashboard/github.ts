@@ -891,11 +891,11 @@ async function githubGraphql(args: {
   }
   if (!response.ok) throw githubResponseError(response)
   const body: unknown = await response.json().catch(() => null)
-  if (
-    body === null
-    || typeof body !== 'object'
-    || ('errors' in body && Array.isArray(body.errors) && body.errors.length > 0)
-  ) {
+  if (body === null || typeof body !== 'object') throw new DashboardUpstreamError()
+  if ('errors' in body && Array.isArray(body.errors) && body.errors.length > 0) {
+    // Surface the GraphQL error detail: otherwise a partial-access or bad-field
+    // error is an opaque sync failure. Names a field/reason, never a secret.
+    console.error('GitHub GraphQL errors', JSON.stringify(body.errors))
     throw new DashboardUpstreamError()
   }
   return body
