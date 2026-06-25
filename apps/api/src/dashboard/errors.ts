@@ -18,3 +18,16 @@ export class DashboardUpstreamError extends Error {
     this.name = 'DashboardUpstreamError'
   }
 }
+
+/**
+ * GitHub returned a clean response with `repository: null`: the repo no longer
+ * resolves under that owner/name (deleted, transferred, renamed, or removed from
+ * the App's selection). A terminal state, not a transient failure, so the
+ * reconciler retires the row rather than retrying it forever.
+ */
+export class DashboardRepositoryGoneError extends Error {
+  constructor() {
+    super('GitHub repository no longer exists')
+    this.name = 'DashboardRepositoryGoneError'
+  }
+}

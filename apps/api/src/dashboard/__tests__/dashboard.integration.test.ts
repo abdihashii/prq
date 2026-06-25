@@ -435,6 +435,35 @@ describe.skipIf(!RUN_INTEGRATION)('database-backed dashboard integration', () =>
     const limited = await store.listStaleRepositories({ staleBefore: NOW, limit: 1 })
     expect(limited.map(repository => repository.githubRepositoryId)).toEqual(['R_owned'])
   })
+
+  it('archives a gone repository and closes its open pull requests', async () => {
+    const store = createDrizzleDashboardReconciliationStore(client.db)
+    const goneAt = new Date(NOW.getTime() + 60 * 60 * 1000)
+
+    await store.markRepositoryGone({
+      githubRepositoryId: 'R_active',
+      githubInstallationId: 'I_active',
+      owner: 'acme',
+      name: 'rocket',
+      dashboardReconciledAt: NOW,
+    }, goneAt)
+
+    const [repository] = await client.db.select({
+      archived: repositories.archived,
+      dashboardReconciledAt: repositories.dashboardReconciledAt,
+    }).from(repositories).where(eq(repositories.githubRepositoryId, 'R_active'))
+    expect(repository?.archived).toBe(true)
+    expect(repository?.dashboardReconciledAt?.getTime()).toBe(goneAt.getTime())
+
+    const states = await client.db.select({ state: pullRequests.state })
+      .from(pullRequests)
+      .where(eq(pullRequests.githubRepositoryId, 'R_active'))
+    expect(states.every(row => row.state === 'CLOSED')).toBe(true)
+
+    // A gone repo drops out of the stale-list even when overdue.
+    const stale = await store.listStaleRepositories({ staleBefore: goneAt, limit: 10 })
+    expect(stale.map(row => row.githubRepositoryId)).not.toContain('R_active')
+  })
 })
 
 async function seedStoredDashboard(client: DatabaseClient) {

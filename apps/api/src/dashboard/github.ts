@@ -15,6 +15,7 @@ import {
 import {
   DashboardBadCredentialsError,
   DashboardRateLimitedError,
+  DashboardRepositoryGoneError,
   DashboardUpstreamError,
 } from './errors'
 import type {
@@ -516,6 +517,12 @@ export interface DashboardReconciliationStore {
     staleBefore: Date
     limit: number
   }): Promise<AuthorizedRepository[]>
+  /**
+   * Retires a repository GitHub no longer resolves: archives the row (so the
+   * stale-list and freshness queries skip it) and closes its still-open PRs (so
+   * they drop off the dashboard), stamping the reconcile time.
+   */
+  markRepositoryGone(repository: AuthorizedRepository, now: Date): Promise<void>
 }
 
 export function createGitHubDashboardReconciler(dependencies: {
@@ -528,7 +535,19 @@ export function createGitHubDashboardReconciler(dependencies: {
   return {
     async reconcile(repository, auth, now) {
       const previouslyOpenIds = await store.findOpenPullRequestIds(repository.githubRepositoryId)
-      const openPullRequests = await fetchOpenPullRequests(repository, auth, fetchImpl)
+      let openPullRequests: ReconciledPullRequest[]
+      try {
+        openPullRequests = await fetchOpenPullRequests(repository, auth, fetchImpl)
+      }
+      catch (error) {
+        // A deleted/transferred repo is terminal, not a sync failure: retire the row
+        // (archive it, close its now-orphaned PRs) so it leaves the reconcile rotation.
+        if (error instanceof DashboardRepositoryGoneError) {
+          await store.markRepositoryGone(repository, now)
+          return
+        }
+        throw error
+      }
       const openIds = new Set(openPullRequests.map(entry => entry.pullRequest.id))
       const missingIds = previouslyOpenIds.filter(id => !openIds.has(id))
       const missingStates = await fetchPullRequestStates(missingIds, auth, fetchImpl)
@@ -578,6 +597,25 @@ export function createDrizzleDashboardReconciliationStore(
           ...row,
           githubInstallationId: row.githubInstallationId,
         }]))
+    },
+
+    async markRepositoryGone(repository, now) {
+      await db.transaction(async (tx) => {
+        await tx.update(pullRequests).set({
+          state: 'CLOSED',
+          closedAt: now,
+          lastSyncedAt: now,
+          updatedAt: now,
+        }).where(and(
+          eq(pullRequests.githubRepositoryId, repository.githubRepositoryId),
+          eq(pullRequests.state, 'OPEN'),
+        ))
+        await tx.update(repositories).set({
+          archived: true,
+          dashboardReconciledAt: now,
+          updatedAt: now,
+        }).where(eq(repositories.githubRepositoryId, repository.githubRepositoryId))
+      })
     },
 
     async persist(args) {
@@ -711,8 +749,11 @@ async function fetchOpenPullRequests(
       auth,
       fetchImpl,
     }))
+    // A clean response with repository === null means the repo no longer resolves
+    // (deleted/transferred); the schema makes pullRequests present whenever
+    // repository is, so a null connection is exactly that terminal case.
     const connection = parsed.data.repository?.pullRequests
-    if (!connection) throw new DashboardUpstreamError()
+    if (!connection) throw new DashboardRepositoryGoneError()
     for (const pullRequest of connection.nodes) {
       const nested = await fetchRemainingNested(pullRequest, auth, fetchImpl)
       values.push({
