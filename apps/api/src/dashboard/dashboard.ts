@@ -131,6 +131,7 @@ export function createDrizzleDashboardStore(db: Database = getDatabase().db): Da
         db.select({
           owner: repositories.owner,
           name: repositories.name,
+          dashboardReconciledAt: repositories.dashboardReconciledAt,
         }).from(repositories)
           .innerJoin(
             githubUserRepositories,
@@ -330,15 +331,44 @@ function projectDashboard(
     }
   }
 
+  const viewedRepositories = state.ownedRepositories.filter(repository =>
+    repositoryAllowlist === null
+    || repositoryAllowlist.has(`${repository.owner}/${repository.name}`),
+  )
+
   const syncedAt = now.toISOString()
   return DashboardResponseSchema.parse({
     viewerLogin,
     buckets: inferDashboardStacks(buckets),
     syncedAt,
+    githubSyncedAt: computeGithubSyncedAt(viewedRepositories),
     rateLimit: { cost: 0, remaining: 0, resetAt: syncedAt },
     trackableRepos,
     installations: state.installations,
   })
+}
+
+/**
+ * The honest "data as of" time for the viewed repos: the oldest GitHub reconcile
+ * across them, i.e. the worst-case staleness floor of what the user is seeing.
+ * Returns null when any viewed repo has never been reconciled, since its PR data is
+ * absent and no freshness can truthfully be claimed for the dashboard as a whole.
+ *
+ * @param repositories - The repos included in the response, after allowlist filtering.
+ * @returns ISO timestamp of the oldest reconcile, or null if there are none or any is unsynced.
+ */
+export function computeGithubSyncedAt(
+  repositories: ReadonlyArray<{ dashboardReconciledAt: Date | null }>,
+): string | null {
+  if (repositories.length === 0) return null
+  let oldest: Date | null = null
+  for (const repository of repositories) {
+    if (repository.dashboardReconciledAt === null) return null
+    if (oldest === null || repository.dashboardReconciledAt < oldest) {
+      oldest = repository.dashboardReconciledAt
+    }
+  }
+  return oldest === null ? null : oldest.toISOString()
 }
 
 function projectPullRequest(stored: StoredPullRequest, viewerLogin: string): PullRequest | null {

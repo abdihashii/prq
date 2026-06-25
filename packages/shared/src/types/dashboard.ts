@@ -19,6 +19,7 @@ export interface DashboardResponse {
   buckets: DashboardBuckets
   viewerLogin: string
   syncedAt: string
+  githubSyncedAt: string | null
   rateLimit: RateLimit
   trackableRepos: TrackableRepo[]
   installations: Installation[]

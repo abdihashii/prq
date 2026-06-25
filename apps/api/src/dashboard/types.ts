@@ -14,6 +14,12 @@ export interface StoredRepository {
   name: string
 }
 
+export interface OwnedRepository {
+  owner: string
+  name: string
+  dashboardReconciledAt: Date | null
+}
+
 export interface StoredPullRequest {
   id: string
   number: number
@@ -39,7 +45,7 @@ export interface StoredPullRequest {
 }
 
 export interface StoredDashboardState {
-  ownedRepositories: StoredRepository[]
+  ownedRepositories: OwnedRepository[]
   installations: Installation[]
   pullRequests: StoredPullRequest[]
 }

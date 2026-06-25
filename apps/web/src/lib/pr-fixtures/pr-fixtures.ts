@@ -217,6 +217,7 @@ function dashboardResponse(buckets: Record<Bucket, PullRequest[]>): DashboardRes
     buckets: inferDashboardStacks(buckets),
     viewerLogin: 'octocat',
     syncedAt: SYNCED_AT,
+    githubSyncedAt: SYNCED_AT,
     rateLimit: { cost: 1, remaining: 4998, resetAt: RESET_AT },
     trackableRepos: [],
     installations: [],
