@@ -1,7 +1,8 @@
 import { generateKeyPairSync } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import { createGitHubRetargetClient, GitHubRetargetError } from '../auto-retarget/github'
+import { createGitHubRetargetClient } from '../auto-retarget/github'
 import type { AutoRetargetTarget } from '../auto-retarget/types'
+import { InstallationTokenError } from '../installation-token'
 
 const NOW = new Date('2026-06-09T12:00:00.000Z')
 const PRIVATE_KEY = generateKeyPairSync('rsa', { modulusLength: 2048 })
@@ -64,7 +65,7 @@ describe('GitHub auto-retarget client', () => {
       now: () => NOW,
     })
     await expect(client.inspect(TARGET)).rejects.toEqual(
-      new GitHubRetargetError('installation suspended', 403),
+      new InstallationTokenError('installation suspended', 403),
     )
   })
 
