@@ -3,6 +3,7 @@ import { createApp } from './app'
 import { assertCronConfig, isProductionEnv, resolveRequestConfig, type RequestConfig } from './config'
 import {
   createAutoRetargetCronWorker,
+  createBackgroundReconcileCronWorker,
   createWorkerDb,
   type WorkerBindings,
 } from './request-context'
@@ -14,8 +15,9 @@ export default {
     return app.fetch(request, env, ctx)
   },
 
-  // Cron Trigger: setInterval doesn't run in Workers, so the auto-retarget fallback
-  // runs one pass per scheduled invocation (see triggers.crons in wrangler.jsonc).
+  // Cron Trigger: setInterval doesn't run in Workers, so each scheduled invocation
+  // runs one pass of the cron fallbacks (auto-retarget and the background dashboard
+  // reconcile; see triggers.crons in wrangler.jsonc).
   async scheduled(_event: unknown, env: WorkerBindings, _ctx: ExecutionContext) {
     const { HYPERDRIVE: _hyperdrive, ...vars } = env
 
@@ -31,16 +33,39 @@ export default {
       assertCronConfig(config, { production: isProductionEnv(vars) })
     }
     catch (error) {
-      console.error('auto-retarget cron: invalid or missing config', error)
+      console.error('cron: invalid or missing config', error)
       throw error
     }
 
     const client = createWorkerDb(env)
     try {
-      await createAutoRetargetCronWorker({
-        mutationConfig: config.mutationConfig,
-        db: client.db,
-      }).runOnce()
+      // Run both fallbacks on the one DB client. allSettled so a failure in one does
+      // not mask or abort the other; re-throw afterwards so any failure still fails
+      // the invocation visibly in Cloudflare metrics.
+      const outcomes = await Promise.allSettled([
+        createAutoRetargetCronWorker({
+          mutationConfig: config.mutationConfig,
+          db: client.db,
+        }).runOnce(),
+        createBackgroundReconcileCronWorker({
+          mutationConfig: config.mutationConfig,
+          db: client.db,
+        }).runOnce(),
+      ])
+      // Log the background reconcile counts: a 5-min cron that is silent on success
+      // is hard to operate, and these counts confirm a run actually did work.
+      const [, backgroundReconcile] = outcomes
+      if (backgroundReconcile.status === 'fulfilled') {
+        console.log('background reconcile complete', backgroundReconcile.value)
+      }
+      const failures = outcomes.filter(
+        (outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected',
+      )
+      for (const failure of failures) {
+        console.error('cron task failed', failure.reason)
+      }
+      const [firstFailure] = failures
+      if (firstFailure) throw firstFailure.reason
     }
     finally {
       await client.close()

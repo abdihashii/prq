@@ -229,6 +229,7 @@ describe('GitHub dashboard reconciliation', () => {
     const reconciliationStore: DashboardReconciliationStore = {
       findOpenPullRequestIds: vi.fn(async () => ['PR_open', 'PR_closed', 'PR_merged']),
       persist: vi.fn(async () => {}),
+      listStaleRepositories: vi.fn(async () => []),
     }
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as {
@@ -331,6 +332,7 @@ describe('GitHub dashboard reconciliation', () => {
     const reconciliationStore: DashboardReconciliationStore = {
       findOpenPullRequestIds: vi.fn(async () => []),
       persist: vi.fn(async () => {}),
+      listStaleRepositories: vi.fn(async () => []),
     }
 
     await expect(createGitHubDashboardReconciler({
