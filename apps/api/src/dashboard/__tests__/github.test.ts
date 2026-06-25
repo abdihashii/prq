@@ -230,6 +230,7 @@ describe('GitHub dashboard reconciliation', () => {
       findOpenPullRequestIds: vi.fn(async () => ['PR_open', 'PR_closed', 'PR_merged']),
       persist: vi.fn(async () => {}),
       listStaleRepositories: vi.fn(async () => []),
+      markRepositoryGone: vi.fn(async () => {}),
     }
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body)) as {
@@ -333,6 +334,7 @@ describe('GitHub dashboard reconciliation', () => {
       findOpenPullRequestIds: vi.fn(async () => []),
       persist: vi.fn(async () => {}),
       listStaleRepositories: vi.fn(async () => []),
+      markRepositoryGone: vi.fn(async () => {}),
     }
 
     await expect(createGitHubDashboardReconciler({
@@ -346,6 +348,33 @@ describe('GitHub dashboard reconciliation', () => {
       dashboardReconciledAt: null,
     }, { token: PRINCIPAL.accessToken }, NOW)).rejects.toThrow()
 
+    expect(reconciliationStore.persist).not.toHaveBeenCalled()
+  })
+
+  it('retires a repository GitHub reports as gone instead of failing', async () => {
+    const reconciliationStore: DashboardReconciliationStore = {
+      findOpenPullRequestIds: vi.fn(async () => []),
+      persist: vi.fn(async () => {}),
+      listStaleRepositories: vi.fn(async () => []),
+      markRepositoryGone: vi.fn(async () => {}),
+    }
+
+    await createGitHubDashboardReconciler({
+      store: reconciliationStore,
+      // A clean GraphQL response with repository: null (deleted/transferred repo).
+      fetch: vi.fn(async () => jsonResponse({ data: { repository: null } })),
+    }).reconcile({
+      githubRepositoryId: 'R_gone',
+      githubInstallationId: 'I_one',
+      owner: 'acme',
+      name: 'deleted',
+      dashboardReconciledAt: null,
+    }, { token: PRINCIPAL.accessToken }, NOW)
+
+    expect(reconciliationStore.markRepositoryGone).toHaveBeenCalledOnce()
+    expect(vi.mocked(reconciliationStore.markRepositoryGone).mock.calls[0]?.[0]).toMatchObject({
+      githubRepositoryId: 'R_gone',
+    })
     expect(reconciliationStore.persist).not.toHaveBeenCalled()
   })
 })
