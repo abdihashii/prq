@@ -21,6 +21,8 @@ describe('createInstallationToken', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       'https://api.github.com/app/installations/42/access_tokens',
     )
+    // GitHub's REST API 403s requests without a User-Agent.
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ 'user-agent': 'prq' })
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({})
   })
 

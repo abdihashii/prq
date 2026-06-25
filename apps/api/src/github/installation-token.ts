@@ -112,7 +112,9 @@ async function githubRequest(
   if (!response.ok) {
     const message = z.object({ message: z.string() }).safeParse(body)
     throw new InstallationTokenError(
-      message.success ? message.data.message : 'GitHub installation token request failed',
+      message.success
+        ? message.data.message
+        : `GitHub installation token request failed with status ${response.status}`,
       response.status,
     )
   }
@@ -123,6 +125,9 @@ function githubHeaders(token: string): Record<string, string> {
   return {
     accept: 'application/vnd.github+json',
     authorization: `Bearer ${token}`,
+    // GitHub's REST API rejects requests without a User-Agent; the dashboard's
+    // GraphQL path sends one too. Omitting it 403s the token mint.
+    'user-agent': 'prq',
     'x-github-api-version': GITHUB_API_VERSION,
   }
 }
