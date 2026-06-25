@@ -1,6 +1,5 @@
 import { and, eq, lte, ne, notInArray } from 'drizzle-orm'
 import { z } from 'zod'
-import type { AuthenticatedPrincipal } from '../auth/session'
 import { getDatabase, type Database } from '../db'
 import { defaultFetch } from '../fetch'
 import { mapWithConcurrency } from './concurrency'
@@ -22,6 +21,7 @@ import type {
   AuthorizedRepository,
   DashboardAuthorization,
   DashboardReconciler,
+  GitHubTokenAuth,
 } from './types'
 
 const GITHUB_API_URL = 'https://api.github.com'
@@ -516,12 +516,12 @@ export function createGitHubDashboardReconciler(dependencies: {
   const fetchImpl = dependencies.fetch ?? defaultFetch
 
   return {
-    async reconcile(repository, principal, now) {
+    async reconcile(repository, auth, now) {
       const previouslyOpenIds = await store.findOpenPullRequestIds(repository.githubRepositoryId)
-      const openPullRequests = await fetchOpenPullRequests(repository, principal, fetchImpl)
+      const openPullRequests = await fetchOpenPullRequests(repository, auth, fetchImpl)
       const openIds = new Set(openPullRequests.map(entry => entry.pullRequest.id))
       const missingIds = previouslyOpenIds.filter(id => !openIds.has(id))
-      const missingStates = await fetchPullRequestStates(missingIds, principal, fetchImpl)
+      const missingStates = await fetchPullRequestStates(missingIds, auth, fetchImpl)
       if (missingStates.length !== missingIds.length) throw new DashboardUpstreamError()
       await store.persist({ repository, pullRequests: openPullRequests, missingStates, now })
     },
@@ -657,7 +657,7 @@ export function createDrizzleDashboardReconciliationStore(
 
 async function fetchOpenPullRequests(
   repository: AuthorizedRepository,
-  principal: AuthenticatedPrincipal,
+  auth: GitHubTokenAuth,
   fetchImpl: typeof fetch,
 ): Promise<ReconciledPullRequest[]> {
   const values: ReconciledPullRequest[] = []
@@ -670,13 +670,13 @@ async function fetchOpenPullRequests(
         name: repository.name,
         cursor,
       },
-      principal,
+      auth,
       fetchImpl,
     }))
     const connection = parsed.data.repository?.pullRequests
     if (!connection) throw new DashboardUpstreamError()
     for (const pullRequest of connection.nodes) {
-      const nested = await fetchRemainingNested(pullRequest, principal, fetchImpl)
+      const nested = await fetchRemainingNested(pullRequest, auth, fetchImpl)
       values.push({
         pullRequest,
         reviewRequests: nested.reviewRequests,
@@ -692,7 +692,7 @@ async function fetchOpenPullRequests(
 
 async function fetchRemainingNested(
   pullRequest: PullRequestNode,
-  principal: AuthenticatedPrincipal,
+  auth: GitHubTokenAuth,
   fetchImpl: typeof fetch,
 ) {
   const reviewRequests = [...pullRequest.reviewRequests.nodes]
@@ -711,7 +711,7 @@ async function fetchRemainingNested(
         reviewsCursor,
         threadsCursor,
       },
-      principal,
+      auth,
       fetchImpl,
     }))
     const node = parsed.data.node
@@ -729,7 +729,7 @@ async function fetchRemainingNested(
 
 async function fetchPullRequestStates(
   ids: string[],
-  principal: AuthenticatedPrincipal,
+  auth: GitHubTokenAuth,
   fetchImpl: typeof fetch,
 ): Promise<MissingPullRequestState[]> {
   const values: MissingPullRequestState[] = []
@@ -737,7 +737,7 @@ async function fetchPullRequestStates(
     const parsed = PullRequestStatesResponseSchema.parse(await githubGraphql({
       query: PULL_REQUEST_STATES_QUERY,
       variables: { ids: ids.slice(offset, offset + PAGE_SIZE) },
-      principal,
+      auth,
       fetchImpl,
     }))
     values.push(...parsed.data.nodes.flatMap(node => node === null ? [] : [node]))
@@ -793,7 +793,7 @@ async function githubJson(
 async function githubGraphql(args: {
   query: string
   variables: Record<string, unknown>
-  principal: AuthenticatedPrincipal
+  auth: GitHubTokenAuth
   fetchImpl: typeof fetch
 }): Promise<unknown> {
   let response: Response
@@ -801,7 +801,7 @@ async function githubGraphql(args: {
     response = await args.fetchImpl(GITHUB_GRAPHQL_URL, {
       method: 'POST',
       headers: {
-        ...githubHeaders(args.principal.accessToken),
+        ...githubHeaders(args.auth.token),
         'content-type': 'application/json',
       },
       body: JSON.stringify({ query: args.query, variables: args.variables }),
