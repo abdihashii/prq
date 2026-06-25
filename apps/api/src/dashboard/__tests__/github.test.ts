@@ -310,7 +310,7 @@ describe('GitHub dashboard reconciliation', () => {
       owner: 'acme',
       name: 'rocket',
       dashboardReconciledAt: null,
-    }, PRINCIPAL, NOW)
+    }, { token: PRINCIPAL.accessToken }, NOW)
 
     expect(reconciliationStore.persist).toHaveBeenCalledOnce()
     const persisted = vi.mocked(reconciliationStore.persist).mock.calls[0]?.[0]
@@ -342,7 +342,7 @@ describe('GitHub dashboard reconciliation', () => {
       owner: 'acme',
       name: 'rocket',
       dashboardReconciledAt: null,
-    }, PRINCIPAL, NOW)).rejects.toThrow()
+    }, { token: PRINCIPAL.accessToken }, NOW)).rejects.toThrow()
 
     expect(reconciliationStore.persist).not.toHaveBeenCalled()
   })

@@ -63,10 +63,19 @@ export interface DashboardAuthorization {
   ): Promise<AuthorizedRepository[]>
 }
 
+/**
+ * Carries only the GitHub bearer the reconciler's fetch layer needs, so the
+ * GitHub layer no longer depends on a session-bound principal. The token may be a
+ * user OAuth token (request path) or an App installation token (background cron).
+ */
+export interface GitHubTokenAuth {
+  token: string
+}
+
 export interface DashboardReconciler {
   reconcile(
     repository: AuthorizedRepository,
-    principal: AuthenticatedPrincipal,
+    auth: GitHubTokenAuth,
     now: Date,
   ): Promise<void>
 }

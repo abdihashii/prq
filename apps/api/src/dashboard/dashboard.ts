@@ -96,7 +96,7 @@ export function createDashboardFacade(
 
       await mapWithConcurrency(repositoriesToReconcile, RECONCILIATION_CONCURRENCY, async (repository) => {
         try {
-          await reconciler.reconcile(repository, principal, requestedAt)
+          await reconciler.reconcile(repository, { token: principal.accessToken }, requestedAt)
         }
         catch (error) {
           if (error instanceof DashboardBadCredentialsError) throw error
