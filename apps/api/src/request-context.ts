@@ -1,6 +1,10 @@
 import { createDrizzleAuthStore, type AuthDependencies } from './auth/session'
 import { type GitHubAppMutationConfig, type RequestConfig } from './config'
 import {
+  createBackgroundReconcileWorker,
+  type BackgroundReconcileWorker,
+} from './dashboard/background-reconcile'
+import {
   createDashboardFacade,
   createDrizzleDashboardStore,
   type DashboardFacade,
@@ -19,6 +23,7 @@ import {
 } from './github/auto-retarget'
 import { createGitHubRetargetClient } from './github/auto-retarget/github'
 import { createDrizzleAutoRetargetStore } from './github/auto-retarget/store'
+import { createInstallationToken } from './github/installation-token'
 import type { WebhookDependencies } from './github/webhook'
 import { createDrizzleWebhookStore } from './github/webhook/store'
 
@@ -158,4 +163,30 @@ export function createAutoRetargetCronWorker(input: {
   db: Database
 }): AutoRetargetWorker {
   return createAutoRetargetWorker(createAutoRetargetDeps(input))
+}
+
+/**
+ * Build the background dashboard-reconcile worker for the Cron Trigger. Mirrors
+ * createAutoRetargetCronWorker: it shares the reconciliation store between the
+ * stale-list query and the reconciler, and mints installation-wide read tokens from
+ * the App private key (the cron has no user session to borrow an OAuth token from).
+ *
+ * @param input.mutationConfig - Resolved GitHub App mutation config (client id + key).
+ * @param input.db - The database handle for this invocation's lifetime.
+ * @returns A background reconcile worker ready to runOnce().
+ */
+export function createBackgroundReconcileCronWorker(input: {
+  mutationConfig: GitHubAppMutationConfig
+  db: Database
+}): BackgroundReconcileWorker {
+  const store = createDrizzleDashboardReconciliationStore(input.db)
+  return createBackgroundReconcileWorker({
+    store,
+    reconciler: createGitHubDashboardReconciler({ store }),
+    mintToken: installationId => createInstallationToken({
+      installationId,
+      config: input.mutationConfig,
+      permissions: { pull_requests: 'read', metadata: 'read' },
+    }),
+  })
 }

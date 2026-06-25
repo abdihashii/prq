@@ -406,6 +406,35 @@ describe.skipIf(!RUN_INTEGRATION)('database-backed dashboard integration', () =>
     }])
     expect(JSON.stringify(dashboard.buckets)).not.toContain('feature/failed-parent')
   })
+
+  it('lists active, unarchived, stale repositories oldest-first within the limit', async () => {
+    const store = createDrizzleDashboardReconciliationStore(client.db)
+    const hourAgo = new Date(NOW.getTime() - 60 * 60 * 1000)
+    const twoHoursAgo = new Date(NOW.getTime() - 2 * 60 * 60 * 1000)
+
+    // R_owned: never reconciled (most stale). R_active: reconciled an hour ago.
+    // R_unauthorized: older still but archived (excluded). R_inactive: stale but on
+    // an inactive installation (excluded).
+    await client.db.update(repositories).set({ dashboardReconciledAt: null })
+      .where(eq(repositories.githubRepositoryId, 'R_owned'))
+    await client.db.update(repositories).set({ dashboardReconciledAt: hourAgo })
+      .where(eq(repositories.githubRepositoryId, 'R_active'))
+    await client.db.update(repositories).set({ dashboardReconciledAt: twoHoursAgo, archived: true })
+      .where(eq(repositories.githubRepositoryId, 'R_unauthorized'))
+    await client.db.update(repositories).set({ dashboardReconciledAt: null })
+      .where(eq(repositories.githubRepositoryId, 'R_inactive'))
+
+    const stale = await store.listStaleRepositories({ staleBefore: NOW, limit: 10 })
+    expect(stale.map(repository => repository.githubRepositoryId)).toEqual(['R_owned', 'R_active'])
+    expect(stale[0]).toMatchObject({
+      githubInstallationId: 'I_owned',
+      owner: 'haji',
+      name: 'dotfiles',
+    })
+
+    const limited = await store.listStaleRepositories({ staleBefore: NOW, limit: 1 })
+    expect(limited.map(repository => repository.githubRepositoryId)).toEqual(['R_owned'])
+  })
 })
 
 async function seedStoredDashboard(client: DatabaseClient) {

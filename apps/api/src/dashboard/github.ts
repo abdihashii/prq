@@ -1,4 +1,4 @@
-import { and, eq, lte, ne, notInArray } from 'drizzle-orm'
+import { and, eq, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getDatabase, type Database } from '../db'
 import { defaultFetch } from '../fetch'
@@ -506,6 +506,16 @@ export interface DashboardReconciliationStore {
     missingStates: MissingPullRequestState[]
     now: Date
   }): Promise<void>
+  /**
+   * Lists repositories due for a background reconcile: those on an active
+   * installation, not archived, and never reconciled or last reconciled before
+   * `staleBefore`. Ordered oldest-first (never-reconciled first) so a run that
+   * hits `limit` still makes forward progress and cannot starve any repo.
+   */
+  listStaleRepositories(args: {
+    staleBefore: Date
+    limit: number
+  }): Promise<AuthorizedRepository[]>
 }
 
 export function createGitHubDashboardReconciler(dependencies: {
@@ -540,6 +550,34 @@ export function createDrizzleDashboardReconciliationStore(
           eq(pullRequests.state, 'OPEN'),
         ))
         .then(rows => rows.map(row => row.id))
+    },
+
+    async listStaleRepositories({ staleBefore, limit }) {
+      return db.select({
+        githubRepositoryId: repositories.githubRepositoryId,
+        githubInstallationId: repositories.githubInstallationId,
+        owner: repositories.owner,
+        name: repositories.name,
+        dashboardReconciledAt: repositories.dashboardReconciledAt,
+      }).from(repositories)
+        .innerJoin(
+          githubInstallations,
+          eq(repositories.githubInstallationId, githubInstallations.githubInstallationId),
+        )
+        .where(and(
+          eq(githubInstallations.active, true),
+          eq(repositories.archived, false),
+          or(
+            isNull(repositories.dashboardReconciledAt),
+            lt(repositories.dashboardReconciledAt, staleBefore),
+          ),
+        ))
+        .orderBy(sql`${repositories.dashboardReconciledAt} asc nulls first`)
+        .limit(limit)
+        .then(rows => rows.flatMap(row => row.githubInstallationId === null ? [] : [{
+          ...row,
+          githubInstallationId: row.githubInstallationId,
+        }]))
     },
 
     async persist(args) {
