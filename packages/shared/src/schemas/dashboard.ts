@@ -34,6 +34,7 @@ export const DashboardResponseSchema: z.ZodType<DashboardResponse> = z.object({
   buckets: DashboardBucketsSchema,
   viewerLogin: z.string(),
   syncedAt: z.iso.datetime(),
+  githubSyncedAt: z.iso.datetime().nullable(),
   rateLimit: RateLimitSchema,
   trackableRepos: z.array(TrackableRepoSchema),
   installations: z.array(InstallationSchema),

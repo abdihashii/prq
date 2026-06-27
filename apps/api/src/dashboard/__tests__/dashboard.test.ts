@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { DashboardBadCredentialsError, DashboardUpstreamError } from '../errors'
 import type { Installation } from '@prq/shared'
 import {
+  computeGithubSyncedAt,
   createDashboardFacade,
   createDashboardService,
   type AuthorizedRepository,
@@ -43,13 +44,16 @@ function storedPullRequest(overrides: Partial<StoredPullRequest> = {}): StoredPu
 }
 
 function serviceWithState(state: {
-  ownedRepositories?: Array<{ owner: string, name: string }>
+  ownedRepositories?: Array<{ owner: string, name: string, dashboardReconciledAt?: Date | null }>
   installations?: Installation[]
   pullRequests?: ReturnType<typeof storedPullRequest>[]
 }) {
   const store: DashboardStore = {
     load: async () => ({
-      ownedRepositories: state.ownedRepositories ?? [],
+      ownedRepositories: (state.ownedRepositories ?? []).map(repo => ({
+        ...repo,
+        dashboardReconciledAt: repo.dashboardReconciledAt ?? null,
+      })),
       installations: state.installations ?? [],
       pullRequests: state.pullRequests ?? [],
     }),
@@ -68,6 +72,7 @@ describe('database dashboard projection', () => {
       viewerLogin: 'Haji',
       buckets: { review: [], attention: [], ready: [], waiting: [], drafts: [] },
       syncedAt: NOW.toISOString(),
+      githubSyncedAt: null,
       rateLimit: { cost: 0, remaining: 0, resetAt: NOW.toISOString() },
       trackableRepos: [],
       installations: [],
@@ -329,7 +334,11 @@ describe('dashboard facade', () => {
 
   it('populates a fresh authorized repository before projecting it', async () => {
     const state = {
-      ownedRepositories: [] as Array<{ owner: string, name: string }>,
+      ownedRepositories: [] as Array<{
+        owner: string
+        name: string
+        dashboardReconciledAt: Date | null
+      }>,
       installations: [] as Installation[],
       pullRequests: [] as StoredPullRequest[],
     }
@@ -338,7 +347,7 @@ describe('dashboard facade', () => {
       authorization: { refresh: vi.fn(async () => [repository(null)]) },
       reconciler: {
         reconcile: vi.fn(async () => {
-          state.ownedRepositories.push({ owner: 'acme', name: 'rocket' })
+          state.ownedRepositories.push({ owner: 'acme', name: 'rocket', dashboardReconciledAt: NOW })
           state.pullRequests.push(storedPullRequest())
         }),
       },
@@ -443,5 +452,32 @@ describe('dashboard facade', () => {
       repositoryAllowlist: new Set(),
     })).rejects.toBeInstanceOf(DashboardUpstreamError)
     expect(store.load).not.toHaveBeenCalled()
+  })
+})
+
+describe('computeGithubSyncedAt', () => {
+  it('returns null when there are no viewed repos', () => {
+    expect(computeGithubSyncedAt([])).toBeNull()
+  })
+
+  it('returns null when any viewed repo has never been reconciled', () => {
+    expect(computeGithubSyncedAt([
+      { dashboardReconciledAt: new Date('2026-06-07T12:00:00.000Z') },
+      { dashboardReconciledAt: null },
+    ])).toBeNull()
+  })
+
+  it('returns the oldest reconcile time (the worst-case staleness floor)', () => {
+    expect(computeGithubSyncedAt([
+      { dashboardReconciledAt: new Date('2026-06-07T12:00:00.000Z') },
+      { dashboardReconciledAt: new Date('2026-06-07T11:30:00.000Z') },
+      { dashboardReconciledAt: new Date('2026-06-07T12:45:00.000Z') },
+    ])).toBe('2026-06-07T11:30:00.000Z')
+  })
+
+  it('returns the single repo time when only one is viewed', () => {
+    expect(computeGithubSyncedAt([
+      { dashboardReconciledAt: new Date('2026-06-07T09:15:00.000Z') },
+    ])).toBe('2026-06-07T09:15:00.000Z')
   })
 })

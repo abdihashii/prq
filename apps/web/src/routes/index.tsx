@@ -154,7 +154,7 @@ function Home() {
                 <Settings className="size-4" />
               </Button>
               <LastSynced
-                dataUpdatedAt={query.dataUpdatedAt}
+                githubSyncedAt={query.data?.githubSyncedAt ?? null}
                 isFetching={query.isFetching}
               />
             </div>

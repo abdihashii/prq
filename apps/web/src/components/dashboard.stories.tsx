@@ -80,7 +80,10 @@ export const DashboardWithPageChrome: Story = {
     <main className="mx-auto max-w-3xl p-6">
       <header className="mb-4 flex items-center justify-between">
         <h1 className="font-mono text-3xl font-semibold tracking-tight">prq</h1>
-        <LastSynced dataUpdatedAt={Date.now() - 30_000} isFetching={false} />
+        <LastSynced
+          githubSyncedAt={new Date(Date.now() - 30_000).toISOString()}
+          isFetching={false}
+        />
       </header>
       <Dashboard data={BUCKETED_RESPONSE_POPULATED} />
     </main>
@@ -93,7 +96,10 @@ export const MobileWidth: Story = {
     <main className="mx-auto w-[390px] max-w-full p-3">
       <header className="mb-3 flex items-center justify-between gap-3">
         <h1 className="font-mono text-2xl font-semibold tracking-tight">prq</h1>
-        <LastSynced dataUpdatedAt={Date.now() - 30_000} isFetching={false} />
+        <LastSynced
+          githubSyncedAt={new Date(Date.now() - 30_000).toISOString()}
+          isFetching={false}
+        />
       </header>
       <Dashboard
         data={BUCKETED_RESPONSE_NESTED_STACKS}
@@ -109,7 +115,7 @@ export const SkeletonWithPageChrome: Story = {
     <main className="mx-auto max-w-3xl p-6">
       <header className="mb-4 flex items-center justify-between">
         <h1 className="font-mono text-3xl font-semibold tracking-tight">prq</h1>
-        <LastSynced dataUpdatedAt={0} isFetching />
+        <LastSynced githubSyncedAt={null} isFetching />
       </header>
       <DashboardSkeleton />
     </main>

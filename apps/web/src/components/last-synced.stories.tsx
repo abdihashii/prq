@@ -9,7 +9,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'Relative "last synced" label that ticks every second. Renders a lone spinner before the first sync (dataUpdatedAt === 0) and an inline spinner while refetching.',
+          'Relative "last synced" label that ticks every second, driven by the oldest GitHub reconcile across the viewed repos. Renders a lone spinner before the first sync (githubSyncedAt === null) and an inline spinner while refetching.',
       },
     },
   },
@@ -19,17 +19,26 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 export const Fresh: Story = {
-  args: { dataUpdatedAt: Date.now() - 30_000, isFetching: false },
+  args: {
+    githubSyncedAt: new Date(Date.now() - 30_000).toISOString(),
+    isFetching: false,
+  },
 }
 
 export const Stale: Story = {
-  args: { dataUpdatedAt: Date.now() - 3 * 60 * 60 * 1000, isFetching: false },
+  args: {
+    githubSyncedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    isFetching: false,
+  },
 }
 
 export const Refreshing: Story = {
-  args: { dataUpdatedAt: Date.now() - 30_000, isFetching: true },
+  args: {
+    githubSyncedAt: new Date(Date.now() - 30_000).toISOString(),
+    isFetching: true,
+  },
 }
 
 export const BeforeFirstSync: Story = {
-  args: { dataUpdatedAt: 0, isFetching: true },
+  args: { githubSyncedAt: null, isFetching: true },
 }

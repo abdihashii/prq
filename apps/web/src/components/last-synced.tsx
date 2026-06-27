@@ -3,11 +3,11 @@ import { useEffect, useState } from 'react'
 import { formatRelativeTime } from '@/lib/format/format'
 
 interface LastSyncedProps {
-  dataUpdatedAt: number
+  githubSyncedAt: string | null
   isFetching: boolean
 }
 
-export function LastSynced({ dataUpdatedAt, isFetching }: LastSyncedProps) {
+export function LastSynced({ githubSyncedAt, isFetching }: LastSyncedProps) {
   const [, setTick] = useState(0)
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export function LastSynced({ dataUpdatedAt, isFetching }: LastSyncedProps) {
     return () => clearInterval(id)
   }, [isFetching])
 
-  if (dataUpdatedAt === 0) {
+  if (githubSyncedAt === null) {
     return (
       <div className="text-muted-foreground flex items-center text-xs">
         <Loader2 className="size-3 animate-spin" aria-label="Loading" />
@@ -24,7 +24,7 @@ export function LastSynced({ dataUpdatedAt, isFetching }: LastSyncedProps) {
     )
   }
 
-  const parts = formatRelativeTime(new Date(dataUpdatedAt).toISOString())
+  const parts = formatRelativeTime(githubSyncedAt)
 
   return (
     <div className="text-muted-foreground flex items-center gap-1.5 text-xs">

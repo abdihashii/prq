@@ -318,6 +318,7 @@ describe('inferDashboardStacks', () => {
       buckets: dashboardBuckets,
       viewerLogin: 'haji',
       syncedAt: '2026-05-01T00:00:00.000Z',
+      githubSyncedAt: '2026-05-01T00:00:00.000Z',
       rateLimit: {
         cost: 1,
         remaining: 4999,

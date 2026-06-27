@@ -80,7 +80,7 @@ function FullApp({
               <Settings className="size-4" />
             </Button>
             <LastSynced
-              dataUpdatedAt={loading ? 0 : Date.now() - 30_000}
+              githubSyncedAt={loading ? null : new Date(Date.now() - 30_000).toISOString()}
               isFetching={loading}
             />
           </div>
